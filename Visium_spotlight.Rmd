@@ -544,15 +544,23 @@ for each spot. We do this by looking at the residuals of the sum of squares for
 each spot which indicates the amount of biological signal not explained by the model.
 
 ```{r message=FALSE}
+spatial_dir = 'D:/minor_intership_data/Visium_Spatial_Lymph_Node_Data/data'
+
+
+
+spatial <- read10xVisium(spatial_dir,
+                         type = "HDF5", data = "raw",
+                        images = "lowres",load = FALSE)
+saveRDS(spatial,"spatial_residual.rds")
 spatial$res_ss <- res[[2]][colnames(spatial)]
 xy <- spatialCoords(spatial)
 spatial$x <- xy[, 1]
 spatial$y <- xy[, 2]
 ggcells(spatial, aes(x, y, color = res_ss)) +
-  geom_point() +
-  scale_color_viridis_c() +
-  coord_fixed() +
-  theme_bw()
+    geom_point() +
+      scale_color_viridis_c() +
+    coord_fixed() +
+    theme_bw()
 ```
 
 ```{r, warning=FALSE, fig.width=10, fig.height=10}
