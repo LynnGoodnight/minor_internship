@@ -71,6 +71,7 @@ init_require_packages <- function(){
   library(scran)
   library(Seurat)
   library(SeuratData)
+  library(SeuratDisk)
 }
 
 init_require_packages()
@@ -88,7 +89,7 @@ Load the spatial data:
 
 ```{r load-sp, message=FALSE,results = 'hide', warning = FALSE}
 
-# library(SeuratDisk)
+
 if(file.exists("Visium_spatial.rds")){
   rds_file='Visium_spatial.rds'
   spatial <- readRDS(rds_file)
@@ -105,7 +106,7 @@ Load the single cell data.
 
 ```{r load-sc, message=FALSE}
 # dataset_name = "cell2location" Tabula
-dataset_name = "cell2location"
+dataset_name = "cell2location34"
 sc_dataset_file = paste(dataset_name,"sc_dataset.rds",sep ="_")
 
 # library(SeuratDisk)
@@ -136,15 +137,15 @@ Quick data exploration:
 
 ```{r explo, fig.width=12, fig.height=6}
 # annotation = "cell2location34" Tabula
-annotation = "cell2location34"
+# annotation = "cell2location34"
 dataset_name = "cell2location34"
-if(annotation == "cell2location34"){
+if(dataset_name == "cell2location34"){
   
   cell_type_table = as.data.frame(table(sc_dataset$Subset))
     
-}else if(annotation == "Tabula"){
+}else if(dataset_name == "Tabula"){
   cell_type_table = as.data.frame(table(sc_dataset$cell_ontology_class))
-}else if(annotation == "cell2location44"){
+}else if(dataset_name == "cell2location44"){
   cell_type_table = as.data.frame(table(sc_dataset$CellType))
 }
   
@@ -156,7 +157,9 @@ library(ggplot2)
 # Basic barplot
 p <- ggplot(data=cell_type_table, aes(x=cell_type, y=frequency,fill=cell_type)) +
   geom_bar(stat="identity")+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))+
+       geom_text(aes(label=frequency), position=position_dodge(width=0.9), vjust=-0.25)
+
 
 ggsave(p,filename = "cell_type_histogram.pdf",width = 15,
        height = 20)
@@ -479,17 +482,17 @@ graphical parameters.
 
 ```{r, fig.width=12, fig.height=9}
 
-# DimPlot(sc_dataset_filtered, group.by = "subclass", label = TRUE)
-DimPlot(sc_dataset, group.by = "cell_ontology_class")
-PCAPlot(sc_dataset, group.by = "cell_ontology_class")
-UMAPPlot(sc_dataset, group.by = "cell_ontology_class")
+DimPlot(sc_dataset_filtered, group.by = "Subset", label = TRUE)
+# DimPlot(sc_dataset, group.by = "cell_ontology_class")
+# PCAPlot(sc_dataset, group.by = "cell_ontology_class")
+# UMAPPlot(sc_dataset, group.by = "cell_ontology_class")
 ```
 ## Scatterpie
 
 We can also visualize the cell type proportions as sections of a pie chart for 
 each spot. You can modify the colors as you would a standard .
 
-```{r Scatterpie, fig.width=9, fig.height=6}
+```{r Scatterpie, fig.width=12, fig.height=9}
 # This can be dynamically visualized with DT as shown below
 ct <- colnames(mat)
 mat[mat < 0.1] <- 0
@@ -505,9 +508,10 @@ if(dataset_name == "Tabula"){
   n <- 34
 }
 
-
+  
 colrs <- brewer.pal.info[brewer.pal.info$colorblind == TRUE, ]
 col_vec = unlist(mapply(brewer.pal, colrs$maxcolors, rownames(colrs)))
+set.seed(123)
 col <- sample(col_vec, n)
 
 
@@ -530,10 +534,6 @@ plotSpatialScatterpie(
   scale_fill_manual(
     values = pal,
     breaks = names(pal))
-
-
-
-
 
 ```
 
@@ -560,20 +560,18 @@ ggcells(spatial, aes(x, y, color = res_ss)) +
 rds_file='predictions.assay.rds'
 predictions.assay <- readRDS(rds_file)
 
-results <- myRCTD@results
-# normalize the cell type proportions to sum to 1.
-norm_weights = normalize_weights(results$weights) 
 
-predictions.assay@data <- t(as.matrix(norm_weights))       
-meta.features <- as.data.frame(colnames(as.matrix(norm_weights)) )
+predictions.assay@data <- t(mat)
+meta.features <- as.data.frame(colnames(mat) )
 rownames(meta.features) = meta.features[,1]
-meta.features$`colnames(as.matrix(norm_weights))` =NULL
+meta.features$`colnames(mat)` =NULL
 predictions.assay@meta.features = meta.features
+
 
 spatial[["predictions"]] <- predictions.assay
 
 DefaultAssay(spatial) <- "predictions"
-colnames(mat)
+table(sc_dataset@meta.data$Subset)
 
 
 if(dataset_name == "Tabula"){
@@ -590,9 +588,10 @@ SpatialFeaturePlot(spatial, features = c("DC_cDC1", "DC_cDC2"), pt.size.factor =
 
 }else if(dataset_name == "cell2location34"){
   
-p = SpatialFeaturePlot(spatial, features = c("B_mem", "B_naive","B_plasma"), pt.size.factor = 1.6, ncol = 3, crop = TRUE)
+ 
+  SpatialFeaturePlot(spatial, features = c("T_CD4+", "NKT","DC_cDC1"), pt.size.factor = 1.6, ncol = 3, crop = TRUE)
 print(p)
-p = SpatialFeaturePlot(spatial, features = c("FDC", "ILC"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)
+p = SpatialFeaturePlot(spatial, features = c("B_GC_prePB", "ILC"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)
 print(p)
 SpatialFeaturePlot(spatial, features = c("T_CD8+_CD161+", "T_CD8+_cytotoxic"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)
 }
