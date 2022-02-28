@@ -223,7 +223,7 @@ VlnPlot(sc_dataset_VlnPlot, features = c("n_genes", "nCount_RNA"), ncol = 2)
 ```
 
 
-```{r}
+```{r cell2location paper parameter}
 #############
 sc_seu  <-sc_dataset
 # sc_seu@meta.data = rename(sc_seu@meta.data, sample='ID')
@@ -599,16 +599,26 @@ set.seed(123)
 col <- sample(col_vec, n)
 
 
+# show T cell and 
+# B cell zones and GCs with follicular dendritic cells (FDCs)
+# FDC, T_CD4+_naive, B_naive
+# Transcriptionally fine subtypes (B_GC_DZ, B_GC_LZ, B_GC_prePB and 
+# T_CD4+_TfH_GC); transcriptionally distinct subtypes (B_Cycling and FDC)
 
 
 # Define color palette
 # (here we use 'paletteMartin' from the 'colorBlindness' package)
+
 paletteMartin <- col
 
 pal <- colorRampPalette(paletteMartin)(length(ct))
 names(pal) <- ct
-pal2 <- pal
-for (char in names(pal)) {
+pal_back <- pal
+
+
+plot_3_region <- function(pal)
+{
+  for (char in names(pal)) {
   print(char)
   if(char %in% c("T_CD4+_naive","FDC","B_naive") ){
     if(char == "T_CD4+_naive")
@@ -625,6 +635,31 @@ for (char in names(pal)) {
   }
   pal[char] = "#00008b"
 }
+
+  return(pal)
+}
+
+plot_n_cell_type <- function(pal,col,n, cell_type_vector)
+{
+  col <- sample(col_vec, n)
+  i = 0
+  for (char in names(pal)) {
+  print(char)
+  if(char %in%  cell_type_vector){
+    pal[char] = col[i]
+    i =+ 1
+    next
+  }
+  pal[char] = "#00008b"
+}
+
+  return(pal)
+}
+
+cell_type_vector = c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
+                 "B_Cycling",  "FDC")
+
+plot_n_cell_type(pal,col,6,cell_type_vector)
 
 type(pal)
 plotSpatialScatterpie(
@@ -704,13 +739,13 @@ if(dataset_name == "Tabula"){
   
 detach("package:SpatialExperiment", unload=TRUE) 
   
-p = SpatialFeaturePlot(spatial, features = c("T_CD4+", "T_CD8+_CD161+","B_GC_LZ"), pt.size.factor = 1.6, ncol = 3, crop = TRUE)
+p = SpatialFeaturePlot(spatial, features = c("B GC LZ", "T helper TfH GC","B GC prePB","FDC"), pt.size.factor = 1.6, ncol = 3, crop = TRUE) + ggtitle("germinal center light zone") 
 print(p)
 
 
-p = SpatialFeaturePlot(spatial, features = c("B_plasma", "DC_cDC1"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)
+p = SpatialFeaturePlot(spatial, features = c("Cycling B", "B GC DZ"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)+ ggtitle("germinal center dark zone") 
 print(p)
-SpatialFeaturePlot(spatial, features = c("VSMC", "B_Cycling"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)
+SpatialFeaturePlot(spatial, features = c("Naive B", "B preGC"), pt.size.factor = 1.6, ncol = 2, crop = TRUE) + ggtitle("B follicle + pre GC") 
 }
 # table(sc_dataset@meta.data$Subset)
 
