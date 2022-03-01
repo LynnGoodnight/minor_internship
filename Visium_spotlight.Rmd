@@ -145,104 +145,112 @@ print(p)
 
 ```{r find marker genes}
 
-sc_reference_markers_file = paste(dataset_name,"sc_reference_markers.rds",sep ="_")
-sc_hvg_file = paste(dataset_name,"sc_hvg.rds",sep ="_")
-sc_dataset_VlnPlot_file =  paste(dataset_name,"sc_dataset_VlnPlot.rds",sep ="_")
-
-
-if(file.exists(sc_hvg_file)){
-  rds_file= sc_reference_markers_file
-  sc_reference_markers <- readRDS(rds_file)
-  rds_file= sc_hvg_file
-  sc_hvg <- readRDS(rds_file)
-}else
-  {
-  
-  qc_filter_sc <- function(sc_dataset,dataset_name){
-    if(dataset_name == "Tabula"){
-      sc_dataset[['nCount_RNA']] = sc_dataset$n_counts_UMIs
-    }else if(dataset_name == "cell2location"){
-      sc_dataset[['nCount_RNA']] = sc_dataset$n_counts
-    }
-
-    mt.genes <- grep(pattern = '^MT-', x = rownames(x = sc_dataset@assays$RNA),value = TRUE)
-    
-    percent.mt <- Matrix::colSums(sc_dataset@assays$RNA[mt.genes, ]) / Matrix::colSums(sc_dataset@assays$RNA)
-    
-    sc_dataset <- AddMetaData(object = sc_dataset,metadata = percent.mt,
-                              col.name = 'percent.mt')
-    
-    
-    # filter cells based on QC metrics
-    sc_dataset_filtered <- subset(sc_dataset, subset = n_genes > 200 & n_genes < 5000 & percent.mt < 0.05 )
-    return(list("sc"= sc_dataset,"sc_filtered"= sc_dataset_filtered))
-    
-  }
-  
-  if(dataset_name=="cell2location" | dataset_name == "cell2location34"){
-    a_list = qc_filter_sc(sc_dataset,"cell2location")
-  }else if(dataset_name=="Tabula"){
-    a_list = qc_filter_sc(sc_dataset,"Tabula")
-  }
-  
-  sc_dataset = a_list$sc
-  # Visualize QC metrics as a violin plot
-
-  saveRDS(sc_dataset,sc_dataset_VlnPlot_file)
-  sc_dataset_filtered = a_list$sc_filtered
-  sc_dataset_filtered <- NormalizeData(sc_dataset_filtered, normalization.method = "LogNormalize", scale.factor = 10000)
-  head(rownames(sc_dataset_filtered))
-  # Get vector indicating which genes are neither ribosomal or mitochondrial
-  genes <- !grepl(pattern = "^Rp[l|s]|Mt", x = rownames(sc_dataset_filtered))
-  if(dataset_name=="Tabula"){
-    Idents(sc_dataset_filtered) <- 'cell_ontology_class'
-  }else if(dataset_name=="cell2location"){
-    Idents(sc_dataset_filtered) <- 'CellType'
-  }else if(dataset_name=="cell2location34"){
-    Idents(sc_dataset_filtered) <- 'Subset'
-  }
-  
-  head(Idents(sc_dataset_filtered), 5)
-  sc_dataset_filtered <- FindVariableFeatures(sc_dataset_filtered, selection.method = "vst", nfeatures = 3000)
-  sc_hvg =VariableFeatures(sc_dataset_filtered)
-  saveRDS(sc_hvg,sc_hvg_file)
-  sc_reference_markers <- FindAllMarkers(sc_dataset_filtered, min.pct = 0.25,
-                                         logfc.threshold = 0.25,max.cells.per.ident=200)
-  library(dplyr)
-  sc_reference_markers  <- sc_reference_markers %>%
-    group_by(cluster) %>%
-    slice_max(n = 10, order_by = avg_log2FC)
-  saveRDS(sc_reference_markers,sc_reference_markers_file)
-  
-  
-}
-
-rds_file= sc_dataset_VlnPlot_file
-sc_dataset_VlnPlot <- readRDS(rds_file)
-VlnPlot(sc_dataset_VlnPlot, features = c("n_genes", "nCount_RNA"), ncol = 2)
+# sc_reference_markers_file = paste(dataset_name,"sc_reference_markers.rds",sep ="_")
+# sc_hvg_file = paste(dataset_name,"sc_hvg.rds",sep ="_")
+# sc_dataset_VlnPlot_file =  paste(dataset_name,"sc_dataset_VlnPlot.rds",sep ="_")
+# 
+# if(file.exists(sc_hvg_file)){
+#   rds_file= sc_reference_markers_file
+#   sc_reference_markers <- readRDS(rds_file)
+#   rds_file= sc_hvg_file
+#   sc_hvg <- readRDS(rds_file)
+# }else
+#   {
+#   
+#   qc_filter_sc <- function(sc_dataset,dataset_name){
+#     if(dataset_name == "Tabula"){
+#       sc_dataset[['nCount_RNA']] = sc_dataset$n_counts_UMIs
+#     }else if(dataset_name == "cell2location"){
+#       sc_dataset[['nCount_RNA']] = sc_dataset$n_counts
+#     }
+# 
+#     mt.genes <- grep(pattern = '^MT-', x = rownames(x = sc_dataset@assays$RNA),value = TRUE)
+#     
+#     percent.mt <- Matrix::colSums(sc_dataset@assays$RNA[mt.genes, ]) / Matrix::colSums(sc_dataset@assays$RNA)
+#     
+#     sc_dataset <- AddMetaData(object = sc_dataset,metadata = percent.mt,
+#                               col.name = 'percent.mt')
+#     
+#     
+#     # filter cells based on QC metrics
+#     sc_dataset_filtered <- subset(sc_dataset, subset = n_genes > 200 & n_genes < 5000 & percent.mt < 0.05 )
+#     return(list("sc"= sc_dataset,"sc_filtered"= sc_dataset_filtered))
+#     
+#   }
+#   
+#   if(dataset_name=="cell2location" | dataset_name == "cell2location34"){
+#     a_list = qc_filter_sc(sc_dataset,"cell2location")
+#   }else if(dataset_name=="Tabula"){
+#     a_list = qc_filter_sc(sc_dataset,"Tabula")
+#   }
+#   
+#   sc_dataset = a_list$sc
+#   # Visualize QC metrics as a violin plot
+# 
+#   saveRDS(sc_dataset,sc_dataset_VlnPlot_file)
+#   sc_dataset_filtered = a_list$sc_filtered
+#   sc_dataset_filtered <- NormalizeData(sc_dataset_filtered, normalization.method = "LogNormalize", scale.factor = 10000)
+#   head(rownames(sc_dataset_filtered))
+#   # Get vector indicating which genes are neither ribosomal or mitochondrial
+#   genes <- !grepl(pattern = "^Rp[l|s]|Mt", x = rownames(sc_dataset_filtered))
+#   if(dataset_name=="Tabula"){
+#     Idents(sc_dataset_filtered) <- 'cell_ontology_class'
+#   }else if(dataset_name=="cell2location"){
+#     Idents(sc_dataset_filtered) <- 'CellType'
+#   }else if(dataset_name=="cell2location34"){
+#     Idents(sc_dataset_filtered) <- 'Subset'
+#   }
+#   
+#   head(Idents(sc_dataset_filtered), 5)
+#   sc_dataset_filtered <- FindVariableFeatures(sc_dataset_filtered, selection.method = "vst", nfeatures = 3000)
+#   sc_hvg =VariableFeatures(sc_dataset_filtered)
+#   saveRDS(sc_hvg,sc_hvg_file)
+#   sc_reference_markers <- FindAllMarkers(sc_dataset_filtered, min.pct = 0.25,
+#                                          logfc.threshold = 0.25,max.cells.per.ident=200)
+#   library(dplyr)
+#   sc_reference_markers  <- sc_reference_markers %>%
+#     group_by(cluster) %>%
+#     slice_max(n = 10, order_by = avg_log2FC)
+#   saveRDS(sc_reference_markers,sc_reference_markers_file)
+#   
+#   
+# }
+# 
+# rds_file= sc_dataset_VlnPlot_file
+# sc_dataset_VlnPlot <- readRDS(rds_file)
+# VlnPlot(sc_dataset_VlnPlot, features = c("n_genes", "nCount_RNA"), ncol = 2)
 ```
 
 
-```{r cell2location paper parameter}
+```{r run spotlight using cell2location paper parameter}
 #############
+cluster_markers_all_file = paste(dataset_name,"cluster_markers_all.rds",sep ="_")
+sc_hvg_file = paste(dataset_name,"sc_hvg2.rds",sep ="_")
+
+sc_reference_markers_file = paste(dataset_name,"sc_reference_markers.rds",sep ="_")
+rds_file= sc_reference_markers_file
+sc_reference_markers <- readRDS(rds_file)
+
 sc_seu  <-sc_dataset
 # sc_seu@meta.data = rename(sc_seu@meta.data, sample='ID')
 sp_seu <- spatial
 sc_seu <- SCTransform(sc_seu, verbose = FALSE)
 sp_seu <- SCTransform(sp_seu,assay = "Spatial", verbose = FALSE)
+
+
+if(file.exists(sc_hvg_file)){
+  rds_file= cluster_markers_all_file
+  cluster_markers_all <- readRDS(rds_file)
+  rds_file= sc_hvg_file
+  sc_hvg <- readRDS(rds_file)
+
+}else{
+
 sc_seu <- FindVariableFeatures(sc_seu, selection.method = "vst", nfeatures = 5000)
 
 sc_hvg =VariableFeatures(sc_seu)
+saveRDS(sc_hvg,sc_hvg_file)
 ##########
-# Idents(sc_seu) = sc_seu$Subset
-# sc_seu = sc_seu[!is.na(sc_seu@assays$RNA@meta.features$GeneID.2),]
-# sc_seu = sc_seu[!duplicated(sc_seu@assays$RNA@meta.features$GeneID.2),]
-# rownames(sc_seu@assays$RNA@meta.features) = sc_seu@assays$RNA@meta.features$GeneID.2
-# rownames(sc_seu@assays$RNA@counts) = sc_seu@assays$RNA@meta.features$GeneID.2
-# rownames(sc_seu@assays$RNA@data) = sc_seu@assays$RNA@meta.features$GeneID.2
-
-
-
 
 #### Extract the top marker genes from each cluster ####
 Seurat::Idents(object = sc_seu) <- sc_seu@meta.data$Subset
@@ -252,16 +260,22 @@ Seurat::Idents(object = sc_seu) <- sc_seu@meta.data$Subset
 
 cluster_markers_all = rbind(cluster_markers_all,sc_reference_markers[sc_reference_markers$cluster == "T_Treg",]
 )
-# T_Treg  T_CD4+_naive
+
+cluster_markers_all = rbind(cluster_markers_all,sc_reference_markers[sc_reference_markers$cluster == "T_CD4+_naive",]
+)
+# T_Treg  T_CD4+_naive  
+saveRDS(cluster_markers_all,cluster_markers_all_file)
+}
+VlnPlot(sc_seu, features = c("n_genes", "n_counts"), ncol = 2)
 ```
 
 ```{r}
 
-sc_dataset.downsampled_file = paste(dataset_name,"sc_dataset.downsampled.rds",sep ="_")
+sc_dataset.downsampled_file = paste(dataset_name,"sc_dataset.downsampled2.rds",sep ="_")
 
 if (file.exists(sc_dataset.downsampled_file)){
   rds_file = sc_dataset.downsampled_file
-  sc_dataset_filtered <- readRDS(rds_file)
+  sc_seu <- readRDS(rds_file)
 }else
 {
   # downsample to at most 100 per identity
@@ -292,19 +306,26 @@ if (file.exists(sc_dataset.downsampled_file)){
   # subsample fixed numbers of cells from differently sized cell types in a seurat object.
   sc_seu = subsample_cells(sc_seu,dataset_name,1000)
 }
+```
 
- set.seed(123)
-
+```{r}
+set.seed(123)
+res_file = paste(dataset_name,"res2.rds",sep ="_")
+if(file.exists(res_file)){
+  rds_file = res_file
+  res <- readRDS(rds_file)
+}else{
     res <- SPOTlight(
       x = sc_seu,
       y = sp_seu@assays$Spatial@counts,
       groups = sc_seu$Subset,
       mgs = cluster_markers_all,
-      hvg = sc_hvg, 
+      hvg = sc_hvg, scale = FALSE,
       weight_id = "avg_log2FC",
       group_id = "cluster", min_prop = 0.09, model = "ns",
       gene_id = "gene")
-    # saveRDS(res,res_file)
+    saveRDS(res,res_file)
+}
     #     res <- SPOTlight(
     #   x = sc_dataset_filtered,
     #   y = spatial@assays$Spatial@counts,
@@ -319,41 +340,41 @@ if (file.exists(sc_dataset.downsampled_file)){
 ### Cell Downsampling
 ```{r downsample}
 
-sc_dataset.downsampled_file = paste(dataset_name,"sc_dataset.downsampled.rds",sep ="_")
-
-if (file.exists(sc_dataset.downsampled_file)){
-  rds_file = sc_dataset.downsampled_file
-  sc_dataset_filtered <- readRDS(rds_file)
-}else
-{
-  # downsample to at most 100 per identity
-  subsample_cells <- function(sc_dataset,dataset_name)
-  {
-    
-    if(dataset_name == "Tabula"){
-      Idents(sc_dataset) <- 'cell_ontology_class'
-    }else if(dataset_name == "cell2location"){
-      Idents(sc_dataset) <- 'CellType'
-    }else if(dataset_name == "cell2location34"){
-      Idents(sc_dataset) <- 'Subset'
-    }
-    table(Idents(sc_dataset))
-    unique(Idents(sc_dataset))
-    
-    
-    cell.list <- WhichCells(sc_dataset, idents = unique(Idents(sc_dataset)), 
-                            downsample = 1000)
-    gc()
-    sc_dataset <- sc_dataset[, cell.list]
-    # table(sc_dataset$cell_ontology_class)
-    saveRDS(sc_dataset,sc_dataset.downsampled_file)
-    
-    return(sc_dataset)
-    
-  }
-  # subsample fixed numbers of cells from differently sized cell types in a seurat object.
-  sc_dataset_filtered = subsample_cells(sc_dataset_filtered,dataset_name)
-}
+# sc_dataset.downsampled_file = paste(dataset_name,"sc_dataset.downsampled.rds",sep ="_")
+# 
+# if (file.exists(sc_dataset.downsampled_file)){
+#   rds_file = sc_dataset.downsampled_file
+#   sc_dataset_filtered <- readRDS(rds_file)
+# }else
+# {
+#   # downsample to at most 100 per identity
+#   subsample_cells <- function(sc_dataset,dataset_name)
+#   {
+#     
+#     if(dataset_name == "Tabula"){
+#       Idents(sc_dataset) <- 'cell_ontology_class'
+#     }else if(dataset_name == "cell2location"){
+#       Idents(sc_dataset) <- 'CellType'
+#     }else if(dataset_name == "cell2location34"){
+#       Idents(sc_dataset) <- 'Subset'
+#     }
+#     table(Idents(sc_dataset))
+#     unique(Idents(sc_dataset))
+#     
+#     
+#     cell.list <- WhichCells(sc_dataset, idents = unique(Idents(sc_dataset)), 
+#                             downsample = 1000)
+#     gc()
+#     sc_dataset <- sc_dataset[, cell.list]
+#     # table(sc_dataset$cell_ontology_class)
+#     saveRDS(sc_dataset,sc_dataset.downsampled_file)
+#     
+#     return(sc_dataset)
+#     
+#   }
+#   # subsample fixed numbers of cells from differently sized cell types in a seurat object.
+#   sc_dataset_filtered = subsample_cells(sc_dataset_filtered,dataset_name)
+# }
 
 
 ```
@@ -366,43 +387,43 @@ You are now set to run `SPOTlight` to deconvolute the spots!
 
 
 ```{r SPOTlight}
-getwd()
-res_file = paste(dataset_name,"res.rds",sep ="_")
-
-if(file.exists(res_file)){
-  rds_file = res_file
-  res <- readRDS(rds_file)
-}else{
-  if(dataset_name=="cell2location34"){
-    res <- SPOTlight(
-      x = sc_dataset_filtered,
-      y = spatial@assays$Spatial@counts,
-      groups = sc_dataset_filtered$Subset,
-      mgs = sc_reference_markers,
-      hvg = sc_hvg,
-      weight_id = "avg_log2FC",
-      group_id = "cluster",
-      gene_id = "gene")
-    saveRDS(res,res_file)
-  }else if(dataset_name=="Tabula")
-  {
-    res <- SPOTlight(
-      x = sc_dataset_filtered,
-      y = spatial@assays$Spatial@counts,
-      groups = sc_dataset_filtered$cell_ontology_class,
-      mgs = sc_reference_markers,
-      hvg = sc_hvg,
-      weight_id = "avg_log2FC",
-      group_id = "cluster",
-      gene_id = "gene")
-    saveRDS(res,res_file)
-  }
-  
-  
-}
-# Time for training: 708.35min
-# Deconvoluting mixture data
-
+# getwd()
+# res_file = paste(dataset_name,"res.rds",sep ="_")
+# 
+# if(file.exists(res_file)){
+#   rds_file = res_file
+#   res <- readRDS(rds_file)
+# }else{
+#   if(dataset_name=="cell2location34"){
+#     res <- SPOTlight(
+#       x = sc_dataset_filtered,
+#       y = spatial@assays$Spatial@counts,
+#       groups = sc_dataset_filtered$Subset,
+#       mgs = sc_reference_markers,
+#       hvg = sc_hvg,
+#       weight_id = "avg_log2FC",
+#       group_id = "cluster",
+#       gene_id = "gene")
+#     saveRDS(res,res_file)
+#   }else if(dataset_name=="Tabula")
+#   {
+#     res <- SPOTlight(
+#       x = sc_dataset_filtered,
+#       y = spatial@assays$Spatial@counts,
+#       groups = sc_dataset_filtered$cell_ontology_class,
+#       mgs = sc_reference_markers,
+#       hvg = sc_hvg,
+#       weight_id = "avg_log2FC",
+#       group_id = "cluster",
+#       gene_id = "gene")
+#     saveRDS(res,res_file)
+#   }
+#   
+#   
+# }
+# # Time for training: 708.35min
+# # Deconvoluting mixture data
+# 
 
 ```
 
@@ -450,7 +471,7 @@ if(dataset_name == "Tabula"){
 }else if(dataset_name == "cell2location"){
   cell_type = sc_dataset_filtered$CellType
 }else if(dataset_name == "cell2location34"){
-  cell_type = sc_dataset_filtered$Subset
+  cell_type = sc_seu$Subset
 }
 # cell_type variable is a vector of group labels for each cell in sc reference dataset
 plotTopicProfiles(
@@ -566,7 +587,7 @@ graphical parameters.
 
 ```{r, fig.width=12, fig.height=9}
 
-DimPlot(sc_dataset_filtered, group.by = "Subset", label = TRUE)
+DimPlot(sc_seu, group.by = "Subset", label = TRUE)
 # DimPlot(sc_dataset, group.by = "cell_ontology_class")
 # PCAPlot(sc_dataset, group.by = "cell_ontology_class")
 # UMAPPlot(sc_dataset, group.by = "cell_ontology_class")
@@ -606,9 +627,6 @@ col <- sample(col_vec, n)
 # T_CD4+_TfH_GC); transcriptionally distinct subtypes (B_Cycling and FDC)
 
 
-# Define color palette
-# (here we use 'paletteMartin' from the 'colorBlindness' package)
-
 paletteMartin <- col
 
 pal <- colorRampPalette(paletteMartin)(length(ct))
@@ -639,15 +657,27 @@ plot_3_region <- function(pal)
   return(pal)
 }
 
-plot_n_cell_type <- function(pal,col,n, cell_type_vector)
+pal = plot_3_region(pal_back)
+plotSpatialScatterpie(
+  x = spatial,
+  y = mat,
+  cell_types = colnames(y),
+  img = FALSE,
+  scatterpie_alpha = 1,
+  pie_scale = 0.4) +
+  scale_fill_manual(
+    values = pal,
+    breaks = names(pal))
+
+plot_n_cell_type <- function(pal,col_vec,n, cell_type_vector)
 {
   col <- sample(col_vec, n)
-  i = 0
+  i = 1
   for (char in names(pal)) {
   print(char)
   if(char %in%  cell_type_vector){
     pal[char] = col[i]
-    i =+ 1
+    i = i + 1
     next
   }
   pal[char] = "#00008b"
@@ -659,9 +689,20 @@ plot_n_cell_type <- function(pal,col,n, cell_type_vector)
 cell_type_vector = c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
                  "B_Cycling",  "FDC")
 
-plot_n_cell_type(pal,col,6,cell_type_vector)
+pal = plot_n_cell_type(pal_back,col_vec,6,cell_type_vector)
+plotSpatialScatterpie(
+  x = spatial,
+  y = mat,
+  cell_types = colnames(y),
+  img = FALSE,
+  scatterpie_alpha = 1,
+  pie_scale = 0.4) +
+  scale_fill_manual(
+    values = pal,
+    breaks = names(pal))
 
-type(pal)
+pal = pal_back
+# type(pal)
 plotSpatialScatterpie(
   x = spatial,
   y = mat,
@@ -681,28 +722,6 @@ Lastly we can also take a look at how well the model predicted the proportions
 for each spot. We do this by looking at the residuals of the sum of squares for
 each spot which indicates the amount of biological signal not explained by the model.
 
-```{r message=FALSE}
-# # spatial_dir = 'D:/minor_intership_data/Visium_Spatial_Lymph_Node_Data/data'
-# # spatial <- read10xVisium(spatial_dir,
-# #                          type = "HDF5", data = "raw",
-# #                         images = "lowres",load = FALSE)
-# # saveRDS(spatial,"spatial_residual.rds")
-# 
-rds_file = "spatial_residual.rds"
-spatial_residual <- readRDS(rds_file)
-
-spatial_residual$res_ss <- res[[2]][colnames(spatial_residual)]
-xy <- spatialCoords(spatial_residual)
-spatial_residual$x <- xy[, 1]
-spatial_residual$y <- xy[, 2]
-detach("package:SeuratObject", unload=TRUE)
-
-ggcells(spatial_residual, aes(x, y, color = res_ss)) +
-geom_point() +
-  scale_color_viridis_c() +
-coord_fixed() +
-theme_bw()
-```
 
 ```{r, warning=FALSE, fig.width=10, fig.height=10}
 
@@ -737,18 +756,48 @@ if(dataset_name == "Tabula"){
 
 }else if(dataset_name == "cell2location34"){
   
-detach("package:SpatialExperiment", unload=TRUE) 
+# detach("package:SpatialExperiment", unload=TRUE) 
   
-p = SpatialFeaturePlot(spatial, features = c("B GC LZ", "T helper TfH GC","B GC prePB","FDC"), pt.size.factor = 1.6, ncol = 3, crop = TRUE) + ggtitle("germinal center light zone") 
+p = SpatialFeaturePlot(spatial, features = c("B_GC_LZ", "T_CD4+_TfH_GC","B_GC_prePB","FDC"), pt.size.factor = 1.6, ncol = 3, crop = TRUE) + ggtitle("germinal center light zone") 
 print(p)
 
 
-p = SpatialFeaturePlot(spatial, features = c("Cycling B", "B GC DZ"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)+ ggtitle("germinal center dark zone") 
+p = SpatialFeaturePlot(spatial, features = c("B_Cycling", "B_GC_DZ"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)+ ggtitle("germinal center dark zone") 
 print(p)
-SpatialFeaturePlot(spatial, features = c("Naive B", "B preGC"), pt.size.factor = 1.6, ncol = 2, crop = TRUE) + ggtitle("B follicle + pre GC") 
+SpatialFeaturePlot(spatial, features = c("B_naive", "B_preGC"), pt.size.factor = 1.6, ncol = 2, crop = TRUE) + ggtitle("B follicle + pre GC") 
 }
 # table(sc_dataset@meta.data$Subset)
 
+```
+```{r message=FALSE}
+# # spatial_dir = 'D:/minor_intership_data/Visium_Spatial_Lymph_Node_Data/data'
+# # spatial <- read10xVisium(spatial_dir,
+# #                          type = "HDF5", data = "raw",
+# #                         images = "lowres",load = FALSE)
+# # saveRDS(spatial,"spatial_residual.rds")
+# 
+rds_file = "spatial_residual.rds"
+spatial_residual <- readRDS(rds_file)
+
+spatial_residual$res_ss <- res[[2]][colnames(spatial_residual)]
+xy <- spatialCoords(spatial_residual)
+spatial_residual$x <- xy[, 1]
+spatial_residual$y <- xy[, 2]
+detach("package:SeuratObject", unload=TRUE)
+
+ggcells(spatial_residual, aes(x, y, color = res_ss)) +
+geom_point() +
+  scale_color_viridis_c() +
+coord_fixed() +
+theme_bw()
+
+lapply(names(sessionInfo()$otherPkgs), function(pkgs)
+  detach(
+    paste0('package:', pkgs),
+    character.only = T,
+    unload = T,
+    force = T
+  ))
 ```
 
 # Session information
