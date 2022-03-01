@@ -770,20 +770,26 @@ SpatialFeaturePlot(spatial, features = c("B_naive", "B_preGC"), pt.size.factor =
 
 ```
 ```{r message=FALSE}
-# # spatial_dir = 'D:/minor_intership_data/Visium_Spatial_Lymph_Node_Data/data'
-# # spatial <- read10xVisium(spatial_dir,
-# #                          type = "HDF5", data = "raw",
-# #                         images = "lowres",load = FALSE)
-# # saveRDS(spatial,"spatial_residual.rds")
-# 
+spatial_dir = 'D:/minor_intership_data/Visium_Spatial_Lymph_Node_Data/data'
+spatial <- read10xVisium(spatial_dir,
+                         type = "HDF5", data = "raw",
+                        images = "lowres",load = FALSE)
+saveRDS(spatial,"spatial_residual.rds")
+
 rds_file = "spatial_residual.rds"
 spatial_residual <- readRDS(rds_file)
-
+library(SpatialExperiment)
+library(scater)
 spatial_residual$res_ss <- res[[2]][colnames(spatial_residual)]
 xy <- spatialCoords(spatial_residual)
 spatial_residual$x <- xy[, 1]
 spatial_residual$y <- xy[, 2]
-detach("package:SeuratObject", unload=TRUE)
+
+
+
+unloadNamespace("SPOTlight")
+unloadNamespace("Seurat")
+unloadNamespace("SeuratObject")
 
 ggcells(spatial_residual, aes(x, y, color = res_ss)) +
 geom_point() +
@@ -791,13 +797,7 @@ geom_point() +
 coord_fixed() +
 theme_bw()
 
-lapply(names(sessionInfo()$otherPkgs), function(pkgs)
-  detach(
-    paste0('package:', pkgs),
-    character.only = T,
-    unload = T,
-    force = T
-  ))
+
 ```
 
 # Session information
