@@ -778,6 +778,9 @@ saveRDS(spatial,"spatial_residual.rds")
 getwd()
 rds_file = "spatial_residual.rds"
 spatial_residual <- readRDS(rds_file)
+unloadNamespace("SPOTlight")
+unloadNamespace("Seurat")
+unloadNamespace("SeuratObject")
 library(SpatialExperiment)
 library(scater)
 spatial_residual$res_ss <- res[[2]][colnames(spatial_residual)]
@@ -787,9 +790,7 @@ spatial_residual$y <- xy[, 2]
 
 
 
-unloadNamespace("SPOTlight")
-unloadNamespace("Seurat")
-unloadNamespace("SeuratObject")
+
 
 ggcells(spatial_residual, aes(x, y, color = res_ss)) +
 geom_point() +
