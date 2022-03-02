@@ -768,8 +768,16 @@ SpatialFeaturePlot(spatial, features = c("B_naive", "B_preGC"), pt.size.factor =
 }
 # table(sc_dataset@meta.data$Subset)
 
+
 ```
+
+
 ```{r message=FALSE}
+library(SpatialExperiment)
+library(scater)
+unloadNamespace("SPOTlight")
+unloadNamespace("Seurat")
+unloadNamespace("SeuratObject")
 spatial_dir = 'D:/minor_intership_data/Visium_Spatial_Lymph_Node_Data/data'
 spatial <- read10xVisium(spatial_dir,
                          type = "HDF5", data = "raw",
@@ -778,11 +786,8 @@ saveRDS(spatial,"spatial_residual.rds")
 getwd()
 rds_file = "spatial_residual.rds"
 spatial_residual <- readRDS(rds_file)
-unloadNamespace("SPOTlight")
-unloadNamespace("Seurat")
-unloadNamespace("SeuratObject")
-library(SpatialExperiment)
-library(scater)
+
+
 spatial_residual$res_ss <- res[[2]][colnames(spatial_residual)]
 xy <- spatialCoords(spatial_residual)
 spatial_residual$x <- xy[, 1]
