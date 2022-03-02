@@ -770,7 +770,7 @@ print(p)
 p = SpatialFeaturePlot(spatial, features = c("B_Cycling", "B_GC_DZ"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)+ ggtitle("germinal center dark zone") 
 print(p)
 SpatialFeaturePlot(spatial, features = c("B_naive", "B_preGC"), pt.size.factor = 1.6, ncol = 2, crop = TRUE) + ggtitle("B follicle + pre GC") 
-SpatialFeaturePlot(spatial, features = c("B_naive", "B_preGC"), pt.size.factor = 1.6, ncol = 2, crop = TRUE) + ggtitle("B follicle + pre GC") 
+SpatialFeaturePlot(spatial, features = c("B_naive", "B_preGC"), pt.size.factor = 1.6, ncol = 2, crop = TRUE) + ggtitle("B follicle + pre GC") scale_fill_continuous(limits = c(0, 1))
 }
 # table(sc_dataset@meta.data$Subset)
 
