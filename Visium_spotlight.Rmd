@@ -234,10 +234,6 @@ sc_reference_markers <- readRDS(rds_file)
 sc_seu  <-sc_dataset
 # sc_seu@meta.data = rename(sc_seu@meta.data, sample='ID')
 sp_seu <- spatial
-# sc_seu <- SCTransform(sc_seu, verbose = FALSE)
-# sp_seu <- SCTransform(sp_seu,assay = "Spatial", verbose = FALSE)
-# saveRDS(sp_seu,"sp_seu_SCTransform.rds")
-# saveRDS(sc_seu,"sc_seu_SCTransform.rds")
 
 if(file.exists(sc_hvg_file)){
   rds_file= cluster_markers_all_file
@@ -250,6 +246,10 @@ if(file.exists(sc_hvg_file)){
   sc_seu <- readRDS(rds_file)  
 
 }else{
+sc_seu <- SCTransform(sc_seu, verbose = FALSE)
+sp_seu <- SCTransform(sp_seu,assay = "Spatial", verbose = FALSE)
+saveRDS(sp_seu,"sp_seu_SCTransform.rds")
+saveRDS(sc_seu,"sc_seu_SCTransform.rds")
 
 sc_seu <- FindVariableFeatures(sc_seu, selection.method = "vst", nfeatures = 5000)
 
@@ -325,7 +325,7 @@ if(file.exists(res_file)){
       y = sp_seu@assays$Spatial@counts,
       groups = sc_seu$Subset,
       mgs = cluster_markers_all,
-      hvg = sc_hvg, scale = FALSE,
+      hvg = sc_hvg, scale = TRUE,
       weight_id = "avg_log2FC",
       group_id = "cluster", min_prop = 0.09, model = "ns",
       gene_id = "gene")
@@ -452,10 +452,6 @@ We first take a look at the Topic profiles. By setting `facet = FALSE` we want t
 evaluate how specific each topic signature is for each cell identity.
 Ideally each cell identity will have a unique topic profile associated to it as 
 seen below.
-
-
-
-
 
 Next we also want to ensure that all the cells from the same cell identity share 
 a similar topic profile since this will mean that `SPOTlight` has learned a
@@ -763,14 +759,13 @@ p = SpatialFeaturePlot(spatial, features = c("stromal cell", "t cell"), pt.size.
   
 detach("package:SpatialExperiment", unload=TRUE)
   
-p = SpatialFeaturePlot(spatial, features = c("B_GC_LZ", "T_CD4+_TfH_GC","B_GC_prePB","FDC"), pt.size.factor = 1.6, ncol = 3, crop = TRUE) + ggtitle("germinal center light zone") 
+p = SpatialFeaturePlot(spatial, features = c("B_GC_LZ", "T_CD4+_TfH_GC","B_GC_prePB","FDC"), pt.size.factor = 1.6, ncol = 3, crop = TRUE) + ggtitle("germinal center light zone") + scale_fill_continuous(limits = c(0, 1))
 print(p)
 
 
-p = SpatialFeaturePlot(spatial, features = c("B_Cycling", "B_GC_DZ"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)+ ggtitle("germinal center dark zone") 
+p = SpatialFeaturePlot(spatial, features = c("B_Cycling", "B_GC_DZ"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)+ ggtitle("germinal center dark zone") + scale_fill_continuous(limits = c(0, 1))
 print(p)
-SpatialFeaturePlot(spatial, features = c("B_naive", "B_preGC"), pt.size.factor = 1.6, ncol = 2, crop = TRUE) + ggtitle("B follicle + pre GC") 
-SpatialFeaturePlot(spatial, features = c("B_naive", "B_preGC"), pt.size.factor = 1.6, ncol = 2, crop = TRUE) + ggtitle("B follicle + pre GC") scale_fill_continuous(limits = c(0, 1))
+SpatialFeaturePlot(spatial, features = c("B_naive", "B_preGC"), pt.size.factor = 1.6, ncol = 2, crop = TRUE) + ggtitle("B follicle + pre GC") + scale_fill_continuous(limits = c(0, 1))
 }
 # table(sc_dataset@meta.data$Subset)
 
@@ -822,5 +817,8 @@ SpatialFeaturePlot(spatial, features = c("B_naive", "B_preGC"), pt.size.factor =
 ```
 
 ```{r}
+devtools::install_github("https://github.com/MarcElosua/SPOTlight", ref = "spotlight-0.1.7")
+devtools::install_git("https://github.com/MarcElosua/SPOTlight", ref = "spotlight-0.1.7")
+
 
 ```
