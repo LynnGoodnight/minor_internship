@@ -32,6 +32,7 @@ setwd("/data/home/lyang/Visium_spotlight")
 # Load packages {.unnumbered}
 
 ```{r load-libs, message = FALSE,  warning = FALSE}
+ library(SPOTlight, lib.loc="/data/home/bioinfo/R/R4.1.0/library_B3.13/old_versions/")
 init_require_packages <- function(){
   library(ggplot2)
   library(SPOTlight)
