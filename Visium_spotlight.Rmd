@@ -32,577 +32,137 @@ setwd("/data/home/lyang/Visium_spotlight")
 # Load packages {.unnumbered}
 
 ```{r load-libs, message = FALSE,  warning = FALSE}
- library(SPOTlight, lib.loc="/data/home/bioinfo/R/R4.1.0/library_B3.13/old_versions/")
-init_require_packages <- function(){
-  library(ggplot2)
-  library(SPOTlight)
-  library(SingleCellExperiment)
-  library(SpatialExperiment)
-  library(scater)
-  library(scran)
-  library(Seurat)
-  library(SeuratData)
-  library(SeuratDisk)
-}
 
-init_require_packages()
+library(Matrix)
+library(data.table)
+library(Seurat)
+library(SeuratDisk)
+library(dplyr)
 
+library(Seurat)
 
-```
-
-
-```{r eh, message = FALSE}
-
-```
-
-Load the spatial data:
-
-```{r load-sp, message=FALSE,results = 'hide', warning = FALSE}
-getwd()
-rds_file='Visium_spatial.rds'
-spatial <- readRDS(rds_file)
-
-```
-
-Load the single cell data.
-
-```{r load-sc, message=FALSE}
-# dataset_name = "cell2location34" Tabula in_house
 dataset_name = "cell2location34"
 sc_dataset_file = paste(dataset_name,"sc_dataset.rds",sep ="_")
-
-# library(SeuratDisk)
-if(file.exists(sc_dataset_file)){
-  rds_file= sc_dataset_file
-  sc_dataset <- readRDS(rds_file)
-}else{
-  import_sc_dataset <- function()
-  {
-    # Convert("D:/minor_intership_data/TS_Lymph_Node.h5ad", dest = "h5seurat", overwrite = TRUE)
-    sc_dataset <- LoadH5Seurat("D:/minor_intership_data/TS_Lymph_Node.h5seurat",assays  = "RNA")
-    sc_dataset
-    head(sc_dataset@meta.data, 5)
-    saveRDS(sc_dataset,'sc_dataset.rds')
-    return(sc_dataset)
-  }
-  sc_dataset = import_sc_dataset()
-}  
-
-# colnames(sc_dataset@meta.data) 
-# table(sc_dataset@meta.data$CellType2)
-# table(sc_dataset@meta.data$Subset)
-
-
-```
-
-Quick data exploration:
-
-```{r explo, fig.width=12, fig.height=6}
-# annotation = "cell2location34" Tabula
-# annotation = "cell2location34"
-dataset_name = "cell2location34"
-if(dataset_name == "cell2location34"){
+rds_file= sc_dataset_file
+sc_seu <- readRDS(rds_file)
   
-  cell_type_table = as.data.frame(table(sc_dataset$Subset))
-    
-}else if(dataset_name == "Tabula"){
-  cell_type_table = as.data.frame(table(sc_dataset$cell_ontology_class))
-}else if(dataset_name == "cell2location44"){
-  cell_type_table = as.data.frame(table(sc_dataset$CellType))
-}
-  
+rds_file='Visium_spatial.rds'
+sp_seu <- readRDS(rds_file)
 
-
-
-colnames(cell_type_table) = c("cell_type","frequency")
-library(ggplot2)
-# Basic barplot
-p <- ggplot(data=cell_type_table, aes(x=cell_type, y=frequency,fill=cell_type)) +
-  geom_bar(stat="identity")+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))+
-       geom_text(aes(label=frequency), position=position_dodge(width=0.9), vjust=-0.25)
-
-
-# ggsave(p,filename = "cell_type_histogram.pdf",width = 15,
-#        height = 20)
-
-print(p)
-
-```
-
-
-
-```{r subset}
-
-# Keep cells with clear cell type annotations
-# sce <- subset(sce, , !cell_ontology_class %in% c("nan", "CD45"))
-# sc_dataset <- subset(sc_dataset, subset = cell_ontology_class != "nan")
-
- 
-
-```
-
-
-
-```{r find marker genes}
-
-# sc_reference_markers_file = paste(dataset_name,"sc_reference_markers.rds",sep ="_")
-# sc_hvg_file = paste(dataset_name,"sc_hvg.rds",sep ="_")
-# sc_dataset_VlnPlot_file =  paste(dataset_name,"sc_dataset_VlnPlot.rds",sep ="_")
-# 
-# if(file.exists(sc_hvg_file)){
-#   rds_file= sc_reference_markers_file
-#   sc_reference_markers <- readRDS(rds_file)
-#   rds_file= sc_hvg_file
-#   sc_hvg <- readRDS(rds_file)
-# }else
-#   {
-#   
-#   qc_filter_sc <- function(sc_dataset,dataset_name){
-#     if(dataset_name == "Tabula"){
-#       sc_dataset[['nCount_RNA']] = sc_dataset$n_counts_UMIs
-#     }else if(dataset_name == "cell2location"){
-#       sc_dataset[['nCount_RNA']] = sc_dataset$n_counts
-#     }
-# 
-#     mt.genes <- grep(pattern = '^MT-', x = rownames(x = sc_dataset@assays$RNA),value = TRUE)
-#     
-#     percent.mt <- Matrix::colSums(sc_dataset@assays$RNA[mt.genes, ]) / Matrix::colSums(sc_dataset@assays$RNA)
-#     
-#     sc_dataset <- AddMetaData(object = sc_dataset,metadata = percent.mt,
-#                               col.name = 'percent.mt')
-#     
-#     
-#     # filter cells based on QC metrics
-#     sc_dataset_filtered <- subset(sc_dataset, subset = n_genes > 200 & n_genes < 5000 & percent.mt < 0.05 )
-#     return(list("sc"= sc_dataset,"sc_filtered"= sc_dataset_filtered))
-#     
-#   }
-#   
-#   if(dataset_name=="cell2location" | dataset_name == "cell2location34"){
-#     a_list = qc_filter_sc(sc_dataset,"cell2location")
-#   }else if(dataset_name=="Tabula"){
-#     a_list = qc_filter_sc(sc_dataset,"Tabula")
-#   }
-#   
-#   sc_dataset = a_list$sc
-#   # Visualize QC metrics as a violin plot
-# 
-#   saveRDS(sc_dataset,sc_dataset_VlnPlot_file)
-#   sc_dataset_filtered = a_list$sc_filtered
-#   sc_dataset_filtered <- NormalizeData(sc_dataset_filtered, normalization.method = "LogNormalize", scale.factor = 10000)
-#   head(rownames(sc_dataset_filtered))
-#   # Get vector indicating which genes are neither ribosomal or mitochondrial
-#   genes <- !grepl(pattern = "^Rp[l|s]|Mt", x = rownames(sc_dataset_filtered))
-#   if(dataset_name=="Tabula"){
-#     Idents(sc_dataset_filtered) <- 'cell_ontology_class'
-#   }else if(dataset_name=="cell2location"){
-#     Idents(sc_dataset_filtered) <- 'CellType'
-#   }else if(dataset_name=="cell2location34"){
-#     Idents(sc_dataset_filtered) <- 'Subset'
-#   }
-#   
-#   head(Idents(sc_dataset_filtered), 5)
-#   sc_dataset_filtered <- FindVariableFeatures(sc_dataset_filtered, selection.method = "vst", nfeatures = 3000)
-#   sc_hvg =VariableFeatures(sc_dataset_filtered)
-#   saveRDS(sc_hvg,sc_hvg_file)
-#   sc_reference_markers <- FindAllMarkers(sc_dataset_filtered, min.pct = 0.25,
-#                                          logfc.threshold = 0.25,max.cells.per.ident=200)
-#   library(dplyr)
-#   sc_reference_markers  <- sc_reference_markers %>%
-#     group_by(cluster) %>%
-#     slice_max(n = 10, order_by = avg_log2FC)
-#   saveRDS(sc_reference_markers,sc_reference_markers_file)
-#   
-#   
-# }
-# 
-# rds_file= sc_dataset_VlnPlot_file
-# sc_dataset_VlnPlot <- readRDS(rds_file)
-# VlnPlot(sc_dataset_VlnPlot, features = c("n_genes", "nCount_RNA"), ncol = 2)
-```
-
-
-```{r run spotlight using cell2location paper parameter}
-#############
-cluster_markers_all_file = paste(dataset_name,"cluster_markers_all.rds",sep ="_")
-sc_hvg_file = paste(dataset_name,"sc_hvg2.rds",sep ="_")
-
-sc_reference_markers_file = paste(dataset_name,"sc_reference_markers.rds",sep ="_")
-rds_file= sc_reference_markers_file
-sc_reference_markers <- readRDS(rds_file)
-
-sc_seu  <-sc_dataset
-# sc_seu@meta.data = rename(sc_seu@meta.data, sample='ID')
-sp_seu <- spatial
-
-if(file.exists(sc_hvg_file)){
-  rds_file= cluster_markers_all_file
-  cluster_markers_all <- readRDS(rds_file)
-  rds_file= sc_hvg_file
-  sc_hvg <- readRDS(rds_file)
-  rds_file= "sp_seu_SCTransform.rds"
-  sp_seu <- readRDS(rds_file)
-  rds_file= "sc_seu_SCTransform.rds"
-  sc_seu <- readRDS(rds_file)  
-
-}else{
-sc_seu <- SCTransform(sc_seu, verbose = FALSE)
-sp_seu <- SCTransform(sp_seu,assay = "Spatial", verbose = FALSE)
-saveRDS(sp_seu,"sp_seu_SCTransform.rds")
-saveRDS(sc_seu,"sc_seu_SCTransform.rds")
-
-sc_seu <- FindVariableFeatures(sc_seu, selection.method = "vst", nfeatures = 5000)
-
-sc_hvg =VariableFeatures(sc_seu)
-saveRDS(sc_hvg,sc_hvg_file)
-##########
+if(file.exists("old_version_ls.rds")){
+  rds_file= "old_version_ls.rds"
+  spotlight_ls <- readRDS(rds_file)
+  nmf_mod <- spotlight_ls[[1]]
+  decon_mtrx <- spotlight_ls[[2]]
+  }else{
+sc_seu <- SCTransform(sc_seu, verbose = FALSE) %>% RunPCA(verbose = FALSE)
+sp_seu <- SCTransform(sp_seu,assay = "Spatial", verbose = FALSE) %>% RunPCA(verbose = FALSE)
 
 #### Extract the top marker genes from each cluster ####
 Seurat::Idents(object = sc_seu) <- sc_seu@meta.data$Subset
-
-  cluster_markers_all <- FindAllMarkers(sc_seu, min.pct = 0.9,
-                                         logfc.threshold = 1,  only.pos = TRUE)
-
-cluster_markers_all = rbind(cluster_markers_all,sc_reference_markers[sc_reference_markers$cluster == "T_Treg",]
-)
-
-cluster_markers_all = rbind(cluster_markers_all,sc_reference_markers[sc_reference_markers$cluster == "T_CD4+_naive",]
-)
-# T_Treg  T_CD4+_naive  
-saveRDS(cluster_markers_all,cluster_markers_all_file)
-}
-VlnPlot(sc_seu, features = c("n_genes", "n_counts"), ncol = 2)
-```
-
-```{r}
-
-sc_dataset.downsampled_file = paste(dataset_name,"sc_dataset.downsampled2.rds",sep ="_")
-
-if (file.exists(sc_dataset.downsampled_file)){
-  rds_file = sc_dataset.downsampled_file
-  sc_seu <- readRDS(rds_file)
-}else
-{
-  # downsample to at most 100 per identity
-  subsample_cells <- function(sc_dataset,dataset_name,n_cell)
-  {
-    
-    if(dataset_name == "Tabula"){
-      Idents(sc_dataset) <- 'cell_ontology_class'
-    }else if(dataset_name == "cell2location"){
-      Idents(sc_dataset) <- 'CellType'
-    }else if(dataset_name == "cell2location34"){
-      Idents(sc_dataset) <- 'Subset'
-    }
-    table(Idents(sc_dataset))
-    unique(Idents(sc_dataset))
-    
-    
-    cell.list <- WhichCells(sc_dataset, idents = unique(Idents(sc_dataset)), 
-                            downsample = n_cell)
-    gc()
-    sc_dataset <- sc_dataset[, cell.list]
-    # table(sc_dataset$cell_ontology_class)
-    saveRDS(sc_dataset,sc_dataset.downsampled_file)
-    
-    return(sc_dataset)
-    
-  }
-  # subsample fixed numbers of cells from differently sized cell types in a seurat object.
-  sc_seu = subsample_cells(sc_seu,dataset_name,1000)
-}
-```
-
-```{r}
+cluster_markers_all <- Seurat::FindAllMarkers(object = sc_seu, 
+                                              assay = "RNA",
+                                              slot = "data",
+                                              verbose = TRUE, 
+                                              only.pos = TRUE, 
+                                              logfc.threshold = 1,
+                                              min.pct = 0.9)
 set.seed(123)
-res_file = paste(dataset_name,"res2.rds",sep ="_")
-if(file.exists(res_file)){
-  rds_file = res_file
-  res <- readRDS(rds_file)
-}else{
-    res <- SPOTlight(
-      x = sc_seu,
-      y = sp_seu@assays$Spatial@counts,
-      groups = sc_seu$Subset,
-      mgs = cluster_markers_all,
-      hvg = sc_hvg, scale = TRUE,
-      weight_id = "avg_log2FC",
-      group_id = "cluster", min_prop = 0.09, model = "ns",
-      gene_id = "gene")
-    saveRDS(res,res_file)
-}
-    #     res <- SPOTlight(
-    #   x = sc_dataset_filtered,
-    #   y = spatial@assays$Spatial@counts,
-    #   groups = sc_dataset_filtered$Subset,
-    #   mgs = sc_reference_markers,
-    #   hvg = sc_hvg,
-    #   weight_id = "avg_log2FC",
-    #   group_id = "cluster",
-    #   gene_id = "gene")
-```
+setwd("/data/home/lyang/Visium_spotlight")
 
-### Cell Downsampling
-```{r downsample}
-
-# sc_dataset.downsampled_file = paste(dataset_name,"sc_dataset.downsampled.rds",sep ="_")
-# 
-# if (file.exists(sc_dataset.downsampled_file)){
-#   rds_file = sc_dataset.downsampled_file
-#   sc_dataset_filtered <- readRDS(rds_file)
-# }else
-# {
-#   # downsample to at most 100 per identity
-#   subsample_cells <- function(sc_dataset,dataset_name)
-#   {
-#     
-#     if(dataset_name == "Tabula"){
-#       Idents(sc_dataset) <- 'cell_ontology_class'
-#     }else if(dataset_name == "cell2location"){
-#       Idents(sc_dataset) <- 'CellType'
-#     }else if(dataset_name == "cell2location34"){
-#       Idents(sc_dataset) <- 'Subset'
-#     }
-#     table(Idents(sc_dataset))
-#     unique(Idents(sc_dataset))
-#     
-#     
-#     cell.list <- WhichCells(sc_dataset, idents = unique(Idents(sc_dataset)), 
-#                             downsample = 1000)
-#     gc()
-#     sc_dataset <- sc_dataset[, cell.list]
-#     # table(sc_dataset$cell_ontology_class)
-#     saveRDS(sc_dataset,sc_dataset.downsampled_file)
-#     
-#     return(sc_dataset)
-#     
-#   }
-#   # subsample fixed numbers of cells from differently sized cell types in a seurat object.
-#   sc_dataset_filtered = subsample_cells(sc_dataset_filtered,dataset_name)
-# }
-
-
-```
-
-## Deconvolution
-
-You are now set to run `SPOTlight` to deconvolute the spots!
-
-
-
-
-```{r SPOTlight}
-# getwd()
-# res_file = paste(dataset_name,"res.rds",sep ="_")
-# 
-# if(file.exists(res_file)){
-#   rds_file = res_file
-#   res <- readRDS(rds_file)
-# }else{
-#   if(dataset_name=="cell2location34"){
-#     res <- SPOTlight(
-#       x = sc_dataset_filtered,
-#       y = spatial@assays$Spatial@counts,
-#       groups = sc_dataset_filtered$Subset,
-#       mgs = sc_reference_markers,
-#       hvg = sc_hvg,
-#       weight_id = "avg_log2FC",
-#       group_id = "cluster",
-#       gene_id = "gene")
-#     saveRDS(res,res_file)
-#   }else if(dataset_name=="Tabula")
-#   {
-#     res <- SPOTlight(
-#       x = sc_dataset_filtered,
-#       y = spatial@assays$Spatial@counts,
-#       groups = sc_dataset_filtered$cell_ontology_class,
-#       mgs = sc_reference_markers,
-#       hvg = sc_hvg,
-#       weight_id = "avg_log2FC",
-#       group_id = "cluster",
-#       gene_id = "gene")
-#     saveRDS(res,res_file)
-#   }
-#   
-#   
-# }
-# # Time for training: 708.35min
-# # Deconvoluting mixture data
-# 
-
-```
-
-Extract data from `SPOTlight`:
-
-```{r}
-# Extract deconvolution matrix
-head(mat <- res$mat)[, seq_len(6)]
-# Extract NMF model fit
-mod <- res$NMF
-```
-
-# Visualization
-
-In the next section we show how to visualize the data and interpret
-`SPOTlight`'s results. 
-
-## Topic profiles
-
-We first take a look at the Topic profiles. By setting `facet = FALSE` we want to
-evaluate how specific each topic signature is for each cell identity.
-Ideally each cell identity will have a unique topic profile associated to it as 
-seen below.
-
-Next we also want to ensure that all the cells from the same cell identity share 
-a similar topic profile since this will mean that `SPOTlight` has learned a
-consistent signature for all the cells from the same cell identity.
-
-
-```{r, fig.width=20, fig.height=30}
-  #   ggplot(df, aes_string(x, "topic",
-  #                         col = "weight")) +
-  #    geom_point() +
-  #     facet_wrap(~group, ncol = 5, scales = "free_x")+
-  # scale_y_continuous(breaks = seq(0,35,1)) 
-```
-
-```{r plotTopicProfiles2, fig.width=20, fig.height=30}
-if(dataset_name == "Tabula"){
-  cell_type = sc_dataset_filtered$cell_ontology_class
-}else if(dataset_name == "cell2location"){
-  cell_type = sc_dataset_filtered$CellType
-}else if(dataset_name == "cell2location34"){
-  cell_type = sc_seu$Subset
-}
-# cell_type variable is a vector of group labels for each cell in sc reference dataset
-plotTopicProfiles(
-  x = mod,
-  y = cell_type,
-  facet = TRUE,
-  min_prop = 0.2,
-  ncol = 5)
-
-
-```
-
-```{r , fig.width=12, fig.height=7}
-  plotTopicProfiles2 <- function(x, y,
-           facet = FALSE,
-           min_prop = 0.1,
-           ncol = NULL) {
+start_time <- Sys.time()
+spotlight_ls <- spotlight_deconvolution(se_sc = sc_seu,
+                                      counts_spatial = sp_seu@assays$Spatial@counts,
+                                      clust_vr = "Subset",
+                                      cluster_markers = cluster_markers_all,
+                                      cl_n = 100, # 100 by default
+                                      hvg = 5000,
+                                      ntop = NULL,
+                                      transf = "uv",
+                                      method = "nsNMF",
+                                      min_cont = 0.09)
+saveRDS(spotlight_ls,"old_version_ls.rds")
+end_time <- Sys.time()
+end_time - start_time
     
-     y <- as.character(y)
-
-    # get group proportions
-    mat <- prop.table(t(coef(x)), 1)
-    if (facet) {
-    
-    } else {
-      # get topic medians
-      df <- aggregate(mat, list(y), mean)
-      group = df[,1]
-      df <- df[,-1]
-      
-      # stretch for plotting
-      df <- data.frame(
-        weight = unlist(df),
-        group = rep(group, ncol(df) ),
-        topic = rep(seq_len(nrow(df)), each = nrow(df))
-      )
-      
-      # set aesthetics
-      x <- "group"
-      f <- NULL
-    }
-    
-    
-    # fix topic order
-    df$topic <- factor(df$topic, seq_along(unique(y)))
-    
-    # render plot
-    ggplot(data = df, mapping = aes(x = group, y = topic, col = weight,
-                           size = weight)) + geom_point()+
-      # guides(col = guide_legend(override.aes = list(size = 2))) +
-      scale_color_continuous(low = "red", high = "blue") +      
-      scale_size_continuous(range = c(0, 5)) +
-      scale_fill_continuous(limits=c(0, 1.25), breaks=seq(0,1,by=0.25))+
-      # xlab(if (facet) x) +
-      theme_bw() +
-      theme(
-        panel.grid = element_blank(),
-        # legend.key.size = unit(0.5, "lines"),
-        plot.title = element_text(hjust = 0.5),
-        axis.text.x = element_text(angle = 90, hjust = 1))
   }
 
 
-plotTopicProfiles2(
-    x = mod,
-    y = cell_type,
-    facet = FALSE,
-    min_prop = 0.01,
-    ncol = 1) 
-# +
-#     theme(aspect.ratio = 1,axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))      
+
 
 ```
 
-Lastly we can take a look at which genes the model learned for each topic.
-Higher values indicate that the gene is more relevant for that topic. 
-In the below table we can see how the top genes for `Topic1` are characteristic
-for B cells (i.e. *Cd79a*, *Cd79b*, *Ms4a1*...).
+```{r, fig.width=15, fig.height=10}
+unloadNamespace("SPOTlight")
+library(SPOTlight, lib.loc="/data/home/bioinfo/R/R4.1.0/library_B3.13/old_versions/")
+h <- NMF::coef(nmf_mod[[1]])
+rownames(h) <- paste("Topic", 1:nrow(h), sep = "_")
+topic_profile_plts <- SPOTlight::dot_plot_profiles_fun(
+  h = h,
+  train_cell_clust = nmf_mod[[2]])
 
-```{r basis-dt, message=FALSE, warning=FALSE,results = 'hide'}
-library(NMF)
-sign <- basis(mod)
-colnames(sign) <- paste0("Topic", seq_len(ncol(sign)))
-head(sign)
-# This can be dynamically visualized with DT as shown below
-# DT::datatable(sign, fillContainer = TRUE, filter = "top")
+topic_profile_plts[[2]] + ggplot2::theme(
+  axis.text.x = ggplot2::element_text(angle = 90), 
+  axis.text = ggplot2::element_text(size = 12))
+
+
 ```
 
-## Spatial Correlation Matrix
+```{r, fig.width=20, fig.height=36}
+topic_profile_plts[[1]] + theme(axis.text.x = element_text(angle = 90), 
+                                axis.text = element_text(size = 12))
+```
+```{r SpatialFeaturePlot}
 
-See [here](http://www.sthda.com/english/wiki/ggcorrplot-visualization-of-a-correlation-matrix-using-ggplot2) 
-for additional graphical parameters.
+# change the cell type names in sp_seu, replace _ with . to keep names coincide between sp_seu and decon_mtrx
+decon_mtrx_sub <- decon_mtrx[, colnames(decon_mtrx) != "res_ss"]
+decon_mtrx_sub[decon_mtrx_sub < 0.08] <- 0
+decon_mtrx <- cbind(decon_mtrx_sub, "res_ss" = decon_mtrx[, "res_ss"])
+rownames(decon_mtrx) <- colnames(sp_seu)
 
-```{r plotCorrelationMatrix, fig.width=9, fig.height=9}
-library(ggcorrplot)
-plotCorrelationMatrix(mat)
+decon_df <- decon_mtrx %>%
+  data.frame() %>%
+  tibble::rownames_to_column("barcodes")
+
+sp_seu@meta.data <- sp_seu@meta.data %>%
+  tibble::rownames_to_column("barcodes") %>%
+  dplyr::left_join(decon_df, by = "barcodes") %>%
+  tibble::column_to_rownames("barcodes")
+
+
+
+# Seurat::SpatialFeaturePlot(
+#   object = sp_seu,
+#   features = c("B.Cycling", "B.GC.DZ"),
+#   alpha = c(0.1, 1))
+
 ```
 
-## Co-localization
-
-Now that we know which cell types are found within each spot we can make a graph
-representing spatial interactions where cell types will have stronger edges
-between them the more often we find them within the same spot.
-
-See [here](https://www.r-graph-gallery.com/network.html) for additional
-graphical parameters.
-
-```{r plotInteractions, fig.width=9, fig.height=9}
-# plotInteractions(mat, "heatmap")
-# plotInteractions(mat, "network")
+```{r}
+cell_types_all <- colnames(decon_mtrx)[which(colnames(decon_mtrx) != "res_ss")]
+getwd()
+# install.packages("imager")
+# SPOTlight::spatial_scatterpie(se_obj = sp_seu,
+#                               cell_types_all = cell_types_all,
+#                               img_path = "tissue_lowres_image.png",
+#                               pie_scale = 0.4)
+# 
+# 
+# SPOTlight::spatial_scatterpie(se_obj = sp_seu,
+#                               cell_types_all = cell_types_all,
+#                               img_path = "tissue_lowres_image.png",
+#                               cell_types_interest = "B.naive",
+#                               pie_scale = 0.4)
+# "T_CD4+_naive","FDC","B_naive"
 ```
-
-
-```{r, fig.width=12, fig.height=9}
-
-DimPlot(sc_seu, group.by = "Subset", label = TRUE)
-# DimPlot(sc_dataset, group.by = "cell_ontology_class")
-# PCAPlot(sc_dataset, group.by = "cell_ontology_class")
-# UMAPPlot(sc_dataset, group.by = "cell_ontology_class")
-```
-## Scatterpie
-
-We can also visualize the cell type proportions as sections of a pie chart for 
-each spot. You can modify the colors as you would a standard .
 
 ```{r Scatterpie, fig.width=12, fig.height=9}
 # This can be dynamically visualized with DT as shown below
-ct <- colnames(mat)
-mat[mat < 0.1] <- 0
+unloadNamespace("SPOTlight")
+library(SPOTlight)
+
+ct <- colnames(decon_mtrx)
+decon_mtrx[decon_mtrx < 0.1] <- 0
 
 
 library(RColorBrewer)
@@ -640,14 +200,14 @@ plot_3_region <- function(pal)
 {
   for (char in names(pal)) {
   print(char)
-  if(char %in% c("T_CD4+_naive","FDC","B_naive") ){
-    if(char == "T_CD4+_naive")
+  if(char %in% c("T.CD4..naive","FDC","B.naive") ){
+    if(char == "T.CD4..naive")
     {
       pal[char] = "#FFFF00"
     } else if (char == "FDC")
     {
       pal[char] = "#add8e6"
-    } else if (char == "B_naive")
+    } else if (char == "B.naive")
     {
       pal[char] = "#FF0000"
     }
@@ -658,11 +218,12 @@ plot_3_region <- function(pal)
 
   return(pal)
 }
-
+packageVersion("SPOTlight")
 pal = plot_3_region(pal_back)
+library(ggplot2)
 plotSpatialScatterpie(
-  x = spatial,
-  y = mat,
+  x = sp_seu,
+  y = decon_mtrx,
   cell_types = colnames(y),
   img = FALSE,
   scatterpie_alpha = 1,
@@ -673,13 +234,9 @@ plotSpatialScatterpie(
 
 plot_n_cell_type <- function(pal,col_vec,n, cell_type_vector)
 {
-  col <- sample(col_vec, n)
-  i = 1
   for (char in names(pal)) {
   print(char)
   if(char %in%  cell_type_vector){
-    pal[char] = col[i]
-    i = i + 1
     next
   }
   pal[char] = "#00008b"
@@ -688,13 +245,13 @@ plot_n_cell_type <- function(pal,col_vec,n, cell_type_vector)
   return(pal)
 }
 
-cell_type_vector = c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
-                 "B_Cycling",  "FDC")
+cell_type_vector = c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC",
+                 "B.Cycling",  "FDC")
 
 pal = plot_n_cell_type(pal_back,col_vec,6,cell_type_vector)
 plotSpatialScatterpie(
-  x = spatial,
-  y = mat,
+  x = sp_seu,
+  y = decon_mtrx,
   cell_types = colnames(y),
   img = FALSE,
   scatterpie_alpha = 1,
@@ -706,8 +263,8 @@ plotSpatialScatterpie(
 pal = pal_back
 # type(pal)
 plotSpatialScatterpie(
-  x = spatial,
-  y = mat,
+  x = sp_seu,
+  y = decon_mtrx,
   cell_types = colnames(y),
   img = FALSE,
   scatterpie_alpha = 1,
@@ -718,19 +275,14 @@ plotSpatialScatterpie(
 
 ```
 
-## Residuals
-
-Lastly we can also take a look at how well the model predicted the proportions
-for each spot. We do this by looking at the residuals of the sum of squares for
-each spot which indicates the amount of biological signal not explained by the model.
 
 
 ```{r, warning=FALSE, fig.width=10, fig.height=10}
 
 rds_file='predictions.assay.rds'
 predictions.assay <- readRDS(rds_file)
-
-
+mat = decon_mtrx
+spatial = sp_seu
 predictions.assay@data <- t(mat)
 meta.features <- as.data.frame(colnames(mat) )
 rownames(meta.features) = meta.features[,1]
@@ -741,7 +293,7 @@ predictions.assay@meta.features = meta.features
 spatial[["predictions"]] <- predictions.assay
 
 DefaultAssay(spatial) <- "predictions"
-table(sc_dataset@meta.data$Subset)
+# table(sc_dataset@meta.data$Subset)
 
 
 if(dataset_name == "Tabula"){
@@ -758,55 +310,747 @@ p = SpatialFeaturePlot(spatial, features = c("stromal cell", "t cell"), pt.size.
 
 }else if(dataset_name == "cell2location34"){
   
-detach("package:SpatialExperiment", unload=TRUE)
+# detach("package:SpatialExperiment", unload=TRUE)
   
-p = SpatialFeaturePlot(spatial, features = c("B_GC_LZ", "T_CD4+_TfH_GC","B_GC_prePB","FDC"), pt.size.factor = 1.6, ncol = 3, crop = TRUE) + ggtitle("germinal center light zone") + scale_fill_continuous(limits = c(0, 1))
+p = SpatialFeaturePlot(spatial, features = c("B.GC.LZ", "T.CD4..TfH.GC","B.GC.prePB","FDC"), pt.size.factor = 1.6, ncol = 4, crop = TRUE) + ggtitle("germinal center light zone")
 print(p)
+ # + scale_fill_continuous(limits = c(0, 1))
 
-
-p = SpatialFeaturePlot(spatial, features = c("B_Cycling", "B_GC_DZ"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)+ ggtitle("germinal center dark zone") + scale_fill_continuous(limits = c(0, 1))
+p = SpatialFeaturePlot(spatial, features = c("B.Cycling", "B.GC.DZ"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)+ ggtitle("germinal center dark zone") 
 print(p)
-SpatialFeaturePlot(spatial, features = c("B_naive", "B_preGC"), pt.size.factor = 1.6, ncol = 2, crop = TRUE) + ggtitle("B follicle + pre GC") + scale_fill_continuous(limits = c(0, 1))
+SpatialFeaturePlot(spatial, features = c("B.naive", "B.preGC"), pt.size.factor = 1.6, ncol = 2, crop = TRUE) + ggtitle("B follicle + pre GC") 
 }
 # table(sc_dataset@meta.data$Subset)
-
-
-```
-
-
-```{r message=FALSE}
-# library(SpatialExperiment)
-# library(scater)
-# unloadNamespace("SPOTlight")
-# unloadNamespace("Seurat")
-# unloadNamespace("SeuratObject")
-# spatial_dir = 'D:/minor_intership_data/Visium_Spatial_Lymph_Node_Data/data'
-# spatial_residual <- read10xVisium(spatial_dir,
-#                          type = "HDF5", data = "raw",
-#                         images = "lowres",load = FALSE)
-# saveRDS(spatial,"spatial_residual.rds")
-# getwd()
-# rds_file = "spatial_residual.rds"
-# spatial_residual <- readRDS(rds_file)
-#  res_file = paste(dataset_name,"res.rds",sep ="_")
-# 
-# 
-#   rds_file = "cell2location34_res2.rds"
-#   res <- readRDS(rds_file)
-# 
-# spatial_residual$res_ss <- res[[2]][colnames(spatial_residual)]
-# xy <- spatialCoords(spatial_residual)
-# spatial_residual$x <- xy[, 1]
-# spatial_residual$y <- xy[, 2]
-
-# ggcells(spatial_residual, aes(x, y, color = res_ss)) +
-# geom_point() +
-#   scale_color_viridis_c() +
-# coord_fixed() +
-# theme_bw()
-
+# https://github.com/satijalab/seurat/blob/master/R/visualization.R
 
 ```
+
+<!-- ```{r initiate packages} -->
+
+<!-- # init_require_packages <- function(){ -->
+<!-- #   library(ggplot2) -->
+<!-- #   library(SPOTlight) -->
+<!-- #   library(SingleCellExperiment) -->
+<!-- #   library(SpatialExperiment) -->
+<!-- #   library(scater) -->
+<!-- #   library(scran) -->
+<!-- #   library(Seurat) -->
+<!-- #   library(SeuratData) -->
+<!-- #   library(SeuratDisk) -->
+<!-- # } -->
+<!-- #  -->
+<!-- # init_require_packages() -->
+
+
+<!-- ``` -->
+
+
+
+<!-- Load the spatial data: -->
+
+<!-- ```{r load-sp, message=FALSE,results = 'hide', warning = FALSE} -->
+<!-- getwd() -->
+<!-- rds_file='Visium_spatial.rds' -->
+<!-- spatial <- readRDS(rds_file) -->
+
+<!-- ``` -->
+
+<!-- Load the single cell data. -->
+
+<!-- ```{r load-sc, message=FALSE} -->
+<!-- # dataset_name = "cell2location34" Tabula in_house -->
+<!-- dataset_name = "cell2location34" -->
+<!-- sc_dataset_file = paste(dataset_name,"sc_dataset.rds",sep ="_") -->
+
+<!-- # library(SeuratDisk) -->
+<!-- if(file.exists(sc_dataset_file)){ -->
+<!--   rds_file= sc_dataset_file -->
+<!--   sc_dataset <- readRDS(rds_file) -->
+<!-- }else{ -->
+<!--   import_sc_dataset <- function() -->
+<!--   { -->
+<!--     # Convert("D:/minor_intership_data/TS_Lymph_Node.h5ad", dest = "h5seurat", overwrite = TRUE) -->
+<!--     sc_dataset <- LoadH5Seurat("D:/minor_intership_data/TS_Lymph_Node.h5seurat",assays  = "RNA") -->
+<!--     sc_dataset -->
+<!--     head(sc_dataset@meta.data, 5) -->
+<!--     saveRDS(sc_dataset,'sc_dataset.rds') -->
+<!--     return(sc_dataset) -->
+<!--   } -->
+<!--   sc_dataset = import_sc_dataset() -->
+<!-- }   -->
+
+<!-- # colnames(sc_dataset@meta.data)  -->
+<!-- # table(sc_dataset@meta.data$CellType2) -->
+<!-- # table(sc_dataset@meta.data$Subset) -->
+
+
+<!-- ``` -->
+
+<!-- Quick data exploration: -->
+
+<!-- ```{r explo, fig.width=12, fig.height=6} -->
+<!-- # annotation = "cell2location34" Tabula -->
+<!-- # annotation = "cell2location34" -->
+<!-- dataset_name = "cell2location34" -->
+<!-- if(dataset_name == "cell2location34"){ -->
+
+<!--   cell_type_table = as.data.frame(table(sc_dataset$Subset)) -->
+
+<!-- }else if(dataset_name == "Tabula"){ -->
+<!--   cell_type_table = as.data.frame(table(sc_dataset$cell_ontology_class)) -->
+<!-- }else if(dataset_name == "cell2location44"){ -->
+<!--   cell_type_table = as.data.frame(table(sc_dataset$CellType)) -->
+<!-- } -->
+
+
+
+
+<!-- colnames(cell_type_table) = c("cell_type","frequency") -->
+<!-- library(ggplot2) -->
+<!-- # Basic barplot -->
+<!-- p <- ggplot(data=cell_type_table, aes(x=cell_type, y=frequency,fill=cell_type)) + -->
+<!--   geom_bar(stat="identity")+ -->
+<!--   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))+ -->
+<!--        geom_text(aes(label=frequency), position=position_dodge(width=0.9), vjust=-0.25) -->
+
+
+<!-- # ggsave(p,filename = "cell_type_histogram.pdf",width = 15, -->
+<!-- #        height = 20) -->
+
+<!-- print(p) -->
+
+<!-- ``` -->
+
+
+
+<!-- ```{r subset} -->
+
+<!-- # Keep cells with clear cell type annotations -->
+<!-- # sce <- subset(sce, , !cell_ontology_class %in% c("nan", "CD45")) -->
+<!-- # sc_dataset <- subset(sc_dataset, subset = cell_ontology_class != "nan") -->
+
+
+
+<!-- ``` -->
+
+
+
+<!-- ```{r find marker genes} -->
+
+<!-- # sc_reference_markers_file = paste(dataset_name,"sc_reference_markers.rds",sep ="_") -->
+<!-- # sc_hvg_file = paste(dataset_name,"sc_hvg.rds",sep ="_") -->
+<!-- # sc_dataset_VlnPlot_file =  paste(dataset_name,"sc_dataset_VlnPlot.rds",sep ="_") -->
+<!-- #  -->
+<!-- # if(file.exists(sc_hvg_file)){ -->
+<!-- #   rds_file= sc_reference_markers_file -->
+<!-- #   sc_reference_markers <- readRDS(rds_file) -->
+<!-- #   rds_file= sc_hvg_file -->
+<!-- #   sc_hvg <- readRDS(rds_file) -->
+<!-- # }else -->
+<!-- #   { -->
+<!-- #    -->
+<!-- #   qc_filter_sc <- function(sc_dataset,dataset_name){ -->
+<!-- #     if(dataset_name == "Tabula"){ -->
+<!-- #       sc_dataset[['nCount_RNA']] = sc_dataset$n_counts_UMIs -->
+<!-- #     }else if(dataset_name == "cell2location"){ -->
+<!-- #       sc_dataset[['nCount_RNA']] = sc_dataset$n_counts -->
+<!-- #     } -->
+<!-- #  -->
+<!-- #     mt.genes <- grep(pattern = '^MT-', x = rownames(x = sc_dataset@assays$RNA),value = TRUE) -->
+<!-- #      -->
+<!-- #     percent.mt <- Matrix::colSums(sc_dataset@assays$RNA[mt.genes, ]) / Matrix::colSums(sc_dataset@assays$RNA) -->
+<!-- #      -->
+<!-- #     sc_dataset <- AddMetaData(object = sc_dataset,metadata = percent.mt, -->
+<!-- #                               col.name = 'percent.mt') -->
+<!-- #      -->
+<!-- #      -->
+<!-- #     # filter cells based on QC metrics -->
+<!-- #     sc_dataset_filtered <- subset(sc_dataset, subset = n_genes > 200 & n_genes < 5000 & percent.mt < 0.05 ) -->
+<!-- #     return(list("sc"= sc_dataset,"sc_filtered"= sc_dataset_filtered)) -->
+<!-- #      -->
+<!-- #   } -->
+<!-- #    -->
+<!-- #   if(dataset_name=="cell2location" | dataset_name == "cell2location34"){ -->
+<!-- #     a_list = qc_filter_sc(sc_dataset,"cell2location") -->
+<!-- #   }else if(dataset_name=="Tabula"){ -->
+<!-- #     a_list = qc_filter_sc(sc_dataset,"Tabula") -->
+<!-- #   } -->
+<!-- #    -->
+<!-- #   sc_dataset = a_list$sc -->
+<!-- #   # Visualize QC metrics as a violin plot -->
+<!-- #  -->
+<!-- #   saveRDS(sc_dataset,sc_dataset_VlnPlot_file) -->
+<!-- #   sc_dataset_filtered = a_list$sc_filtered -->
+<!-- #   sc_dataset_filtered <- NormalizeData(sc_dataset_filtered, normalization.method = "LogNormalize", scale.factor = 10000) -->
+<!-- #   head(rownames(sc_dataset_filtered)) -->
+<!-- #   # Get vector indicating which genes are neither ribosomal or mitochondrial -->
+<!-- #   genes <- !grepl(pattern = "^Rp[l|s]|Mt", x = rownames(sc_dataset_filtered)) -->
+<!-- #   if(dataset_name=="Tabula"){ -->
+<!-- #     Idents(sc_dataset_filtered) <- 'cell_ontology_class' -->
+<!-- #   }else if(dataset_name=="cell2location"){ -->
+<!-- #     Idents(sc_dataset_filtered) <- 'CellType' -->
+<!-- #   }else if(dataset_name=="cell2location34"){ -->
+<!-- #     Idents(sc_dataset_filtered) <- 'Subset' -->
+<!-- #   } -->
+<!-- #    -->
+<!-- #   head(Idents(sc_dataset_filtered), 5) -->
+<!-- #   sc_dataset_filtered <- FindVariableFeatures(sc_dataset_filtered, selection.method = "vst", nfeatures = 3000) -->
+<!-- #   sc_hvg =VariableFeatures(sc_dataset_filtered) -->
+<!-- #   saveRDS(sc_hvg,sc_hvg_file) -->
+<!-- #   sc_reference_markers <- FindAllMarkers(sc_dataset_filtered, min.pct = 0.25, -->
+<!-- #                                          logfc.threshold = 0.25,max.cells.per.ident=200) -->
+<!-- #   library(dplyr) -->
+<!-- #   sc_reference_markers  <- sc_reference_markers %>% -->
+<!-- #     group_by(cluster) %>% -->
+<!-- #     slice_max(n = 10, order_by = avg_log2FC) -->
+<!-- #   saveRDS(sc_reference_markers,sc_reference_markers_file) -->
+<!-- #    -->
+<!-- #    -->
+<!-- # } -->
+<!-- #  -->
+<!-- # rds_file= sc_dataset_VlnPlot_file -->
+<!-- # sc_dataset_VlnPlot <- readRDS(rds_file) -->
+<!-- # VlnPlot(sc_dataset_VlnPlot, features = c("n_genes", "nCount_RNA"), ncol = 2) -->
+<!-- ``` -->
+
+
+<!-- ```{r run spotlight using cell2location paper parameter} -->
+<!-- ############# -->
+<!-- cluster_markers_all_file = paste(dataset_name,"cluster_markers_all.rds",sep ="_") -->
+<!-- sc_hvg_file = paste(dataset_name,"sc_hvg2.rds",sep ="_") -->
+
+<!-- sc_reference_markers_file = paste(dataset_name,"sc_reference_markers.rds",sep ="_") -->
+<!-- rds_file= sc_reference_markers_file -->
+<!-- sc_reference_markers <- readRDS(rds_file) -->
+
+<!-- sc_seu  <-sc_dataset -->
+<!-- # sc_seu@meta.data = rename(sc_seu@meta.data, sample='ID') -->
+<!-- sp_seu <- spatial -->
+
+<!-- if(file.exists(sc_hvg_file)){ -->
+<!--   rds_file= cluster_markers_all_file -->
+<!--   cluster_markers_all <- readRDS(rds_file) -->
+<!--   rds_file= sc_hvg_file -->
+<!--   sc_hvg <- readRDS(rds_file) -->
+<!--   rds_file= "sp_seu_SCTransform.rds" -->
+<!--   sp_seu <- readRDS(rds_file) -->
+<!--   rds_file= "sc_seu_SCTransform.rds" -->
+<!--   sc_seu <- readRDS(rds_file)   -->
+
+<!-- }else{ -->
+<!-- sc_seu <- SCTransform(sc_seu, verbose = FALSE) -->
+<!-- sp_seu <- SCTransform(sp_seu,assay = "Spatial", verbose = FALSE) -->
+<!-- saveRDS(sp_seu,"sp_seu_SCTransform.rds") -->
+<!-- saveRDS(sc_seu,"sc_seu_SCTransform.rds") -->
+
+<!-- sc_seu <- FindVariableFeatures(sc_seu, selection.method = "vst", nfeatures = 5000) -->
+
+<!-- sc_hvg =VariableFeatures(sc_seu) -->
+<!-- saveRDS(sc_hvg,sc_hvg_file) -->
+<!-- ########## -->
+
+<!-- #### Extract the top marker genes from each cluster #### -->
+<!-- Seurat::Idents(object = sc_seu) <- sc_seu@meta.data$Subset -->
+
+<!--   cluster_markers_all <- FindAllMarkers(sc_seu, min.pct = 0.9, -->
+<!--                                          logfc.threshold = 1,  only.pos = TRUE) -->
+
+<!-- cluster_markers_all = rbind(cluster_markers_all,sc_reference_markers[sc_reference_markers$cluster == "T_Treg",] -->
+<!-- ) -->
+
+<!-- cluster_markers_all = rbind(cluster_markers_all,sc_reference_markers[sc_reference_markers$cluster == "T.CD4..naive",] -->
+<!-- ) -->
+<!-- # T_Treg  T_CD4+_naive   -->
+<!-- saveRDS(cluster_markers_all,cluster_markers_all_file) -->
+<!-- } -->
+<!-- VlnPlot(sc_seu, features = c("n_genes", "n_counts"), ncol = 2) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+
+<!-- sc_dataset.downsampled_file = paste(dataset_name,"sc_dataset.downsampled2.rds",sep ="_") -->
+
+<!-- if (file.exists(sc_dataset.downsampled_file)){ -->
+<!--   rds_file = sc_dataset.downsampled_file -->
+<!--   sc_seu <- readRDS(rds_file) -->
+<!-- }else -->
+<!-- { -->
+<!--   # downsample to at most 100 per identity -->
+<!--   subsample_cells <- function(sc_dataset,dataset_name,n_cell) -->
+<!--   { -->
+
+<!--     if(dataset_name == "Tabula"){ -->
+<!--       Idents(sc_dataset) <- 'cell_ontology_class' -->
+<!--     }else if(dataset_name == "cell2location"){ -->
+<!--       Idents(sc_dataset) <- 'CellType' -->
+<!--     }else if(dataset_name == "cell2location34"){ -->
+<!--       Idents(sc_dataset) <- 'Subset' -->
+<!--     } -->
+<!--     table(Idents(sc_dataset)) -->
+<!--     unique(Idents(sc_dataset)) -->
+
+
+<!--     cell.list <- WhichCells(sc_dataset, idents = unique(Idents(sc_dataset)),  -->
+<!--                             downsample = n_cell) -->
+<!--     gc() -->
+<!--     sc_dataset <- sc_dataset[, cell.list] -->
+<!--     # table(sc_dataset$cell_ontology_class) -->
+<!--     saveRDS(sc_dataset,sc_dataset.downsampled_file) -->
+
+<!--     return(sc_dataset) -->
+
+<!--   } -->
+<!--   # subsample fixed numbers of cells from differently sized cell types in a seurat object. -->
+<!--   sc_seu = subsample_cells(sc_seu,dataset_name,1000) -->
+<!-- } -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- set.seed(123) -->
+<!-- res_file = paste(dataset_name,"res2.rds",sep ="_") -->
+<!-- if(file.exists(res_file)){ -->
+<!--   rds_file = res_file -->
+<!--   res <- readRDS(rds_file) -->
+<!-- }else{ -->
+<!--     res <- SPOTlight( -->
+<!--       x = sc_seu, -->
+<!--       y = sp_seu@assays$Spatial@counts, -->
+<!--       groups = sc_seu$Subset, -->
+<!--       mgs = cluster_markers_all, -->
+<!--       hvg = sc_hvg, scale = TRUE, -->
+<!--       weight_id = "avg_log2FC", -->
+<!--       group_id = "cluster", min_prop = 0.09, model = "ns", -->
+<!--       gene_id = "gene") -->
+<!--     saveRDS(res,res_file) -->
+<!-- } -->
+<!--     #     res <- SPOTlight( -->
+<!--     #   x = sc_dataset_filtered, -->
+<!--     #   y = spatial@assays$Spatial@counts, -->
+<!--     #   groups = sc_dataset_filtered$Subset, -->
+<!--     #   mgs = sc_reference_markers, -->
+<!--     #   hvg = sc_hvg, -->
+<!--     #   weight_id = "avg_log2FC", -->
+<!--     #   group_id = "cluster", -->
+<!--     #   gene_id = "gene") -->
+<!-- ``` -->
+
+<!-- ### Cell Downsampling -->
+<!-- ```{r downsample} -->
+
+<!-- # sc_dataset.downsampled_file = paste(dataset_name,"sc_dataset.downsampled.rds",sep ="_") -->
+<!-- #  -->
+<!-- # if (file.exists(sc_dataset.downsampled_file)){ -->
+<!-- #   rds_file = sc_dataset.downsampled_file -->
+<!-- #   sc_dataset_filtered <- readRDS(rds_file) -->
+<!-- # }else -->
+<!-- # { -->
+<!-- #   # downsample to at most 100 per identity -->
+<!-- #   subsample_cells <- function(sc_dataset,dataset_name) -->
+<!-- #   { -->
+<!-- #      -->
+<!-- #     if(dataset_name == "Tabula"){ -->
+<!-- #       Idents(sc_dataset) <- 'cell_ontology_class' -->
+<!-- #     }else if(dataset_name == "cell2location"){ -->
+<!-- #       Idents(sc_dataset) <- 'CellType' -->
+<!-- #     }else if(dataset_name == "cell2location34"){ -->
+<!-- #       Idents(sc_dataset) <- 'Subset' -->
+<!-- #     } -->
+<!-- #     table(Idents(sc_dataset)) -->
+<!-- #     unique(Idents(sc_dataset)) -->
+<!-- #      -->
+<!-- #      -->
+<!-- #     cell.list <- WhichCells(sc_dataset, idents = unique(Idents(sc_dataset)),  -->
+<!-- #                             downsample = 1000) -->
+<!-- #     gc() -->
+<!-- #     sc_dataset <- sc_dataset[, cell.list] -->
+<!-- #     # table(sc_dataset$cell_ontology_class) -->
+<!-- #     saveRDS(sc_dataset,sc_dataset.downsampled_file) -->
+<!-- #      -->
+<!-- #     return(sc_dataset) -->
+<!-- #      -->
+<!-- #   } -->
+<!-- #   # subsample fixed numbers of cells from differently sized cell types in a seurat object. -->
+<!-- #   sc_dataset_filtered = subsample_cells(sc_dataset_filtered,dataset_name) -->
+<!-- # } -->
+
+
+<!-- ``` -->
+
+<!-- ## Deconvolution -->
+
+<!-- You are now set to run `SPOTlight` to deconvolute the spots! -->
+
+
+
+
+<!-- ```{r SPOTlight} -->
+<!-- # getwd() -->
+<!-- # res_file = paste(dataset_name,"res.rds",sep ="_") -->
+<!-- #  -->
+<!-- # if(file.exists(res_file)){ -->
+<!-- #   rds_file = res_file -->
+<!-- #   res <- readRDS(rds_file) -->
+<!-- # }else{ -->
+<!-- #   if(dataset_name=="cell2location34"){ -->
+<!-- #     res <- SPOTlight( -->
+<!-- #       x = sc_dataset_filtered, -->
+<!-- #       y = spatial@assays$Spatial@counts, -->
+<!-- #       groups = sc_dataset_filtered$Subset, -->
+<!-- #       mgs = sc_reference_markers, -->
+<!-- #       hvg = sc_hvg, -->
+<!-- #       weight_id = "avg_log2FC", -->
+<!-- #       group_id = "cluster", -->
+<!-- #       gene_id = "gene") -->
+<!-- #     saveRDS(res,res_file) -->
+<!-- #   }else if(dataset_name=="Tabula") -->
+<!-- #   { -->
+<!-- #     res <- SPOTlight( -->
+<!-- #       x = sc_dataset_filtered, -->
+<!-- #       y = spatial@assays$Spatial@counts, -->
+<!-- #       groups = sc_dataset_filtered$cell_ontology_class, -->
+<!-- #       mgs = sc_reference_markers, -->
+<!-- #       hvg = sc_hvg, -->
+<!-- #       weight_id = "avg_log2FC", -->
+<!-- #       group_id = "cluster", -->
+<!-- #       gene_id = "gene") -->
+<!-- #     saveRDS(res,res_file) -->
+<!-- #   } -->
+<!-- #    -->
+<!-- #    -->
+<!-- # } -->
+<!-- # # Time for training: 708.35min -->
+<!-- # # Deconvoluting mixture data -->
+<!-- #  -->
+
+<!-- ``` -->
+
+<!-- Extract data from `SPOTlight`: -->
+
+<!-- ```{r} -->
+<!-- # Extract deconvolution matrix -->
+<!-- head(mat <- res$mat)[, seq_len(6)] -->
+<!-- # Extract NMF model fit -->
+<!-- mod <- res$NMF -->
+<!-- ``` -->
+
+<!-- # Visualization -->
+
+<!-- In the next section we show how to visualize the data and interpret -->
+<!-- `SPOTlight`'s results.  -->
+
+<!-- ## Topic profiles -->
+
+<!-- We first take a look at the Topic profiles. By setting `facet = FALSE` we want to -->
+<!-- evaluate how specific each topic signature is for each cell identity. -->
+<!-- Ideally each cell identity will have a unique topic profile associated to it as  -->
+<!-- seen below. -->
+
+<!-- Next we also want to ensure that all the cells from the same cell identity share  -->
+<!-- a similar topic profile since this will mean that `SPOTlight` has learned a -->
+<!-- consistent signature for all the cells from the same cell identity. -->
+
+
+<!-- ```{r, fig.width=20, fig.height=30} -->
+<!--   #   ggplot(df, aes_string(x, "topic", -->
+<!--   #                         col = "weight")) + -->
+<!--   #    geom_point() + -->
+<!--   #     facet_wrap(~group, ncol = 5, scales = "free_x")+ -->
+<!--   # scale_y_continuous(breaks = seq(0,35,1))  -->
+<!-- ``` -->
+
+<!-- ```{r plotTopicProfiles2, fig.width=20, fig.height=30} -->
+<!-- if(dataset_name == "Tabula"){ -->
+<!--   cell_type = sc_dataset_filtered$cell_ontology_class -->
+<!-- }else if(dataset_name == "cell2location"){ -->
+<!--   cell_type = sc_dataset_filtered$CellType -->
+<!-- }else if(dataset_name == "cell2location34"){ -->
+<!--   cell_type = sc_seu$Subset -->
+<!-- } -->
+<!-- # cell_type variable is a vector of group labels for each cell in sc reference dataset -->
+<!-- plotTopicProfiles( -->
+<!--   x = mod, -->
+<!--   y = cell_type, -->
+<!--   facet = TRUE, -->
+<!--   min_prop = 0.2, -->
+<!--   ncol = 5) -->
+
+
+<!-- ``` -->
+
+<!-- ```{r , fig.width=12, fig.height=7} -->
+<!--   plotTopicProfiles2 <- function(x, y, -->
+<!--            facet = FALSE, -->
+<!--            min_prop = 0.1, -->
+<!--            ncol = NULL) { -->
+
+<!--      y <- as.character(y) -->
+
+<!--     # get group proportions -->
+<!--     mat <- prop.table(t(coef(x)), 1) -->
+<!--     if (facet) { -->
+
+<!--     } else { -->
+<!--       # get topic medians -->
+<!--       df <- aggregate(mat, list(y), mean) -->
+<!--       group = df[,1] -->
+<!--       df <- df[,-1] -->
+
+<!--       # stretch for plotting -->
+<!--       df <- data.frame( -->
+<!--         weight = unlist(df), -->
+<!--         group = rep(group, ncol(df) ), -->
+<!--         topic = rep(seq_len(nrow(df)), each = nrow(df)) -->
+<!--       ) -->
+
+<!--       # set aesthetics -->
+<!--       x <- "group" -->
+<!--       f <- NULL -->
+<!--     } -->
+
+
+<!--     # fix topic order -->
+<!--     df$topic <- factor(df$topic, seq_along(unique(y))) -->
+
+<!--     # render plot -->
+<!--     ggplot(data = df, mapping = aes(x = group, y = topic, col = weight, -->
+<!--                            size = weight)) + geom_point()+ -->
+<!--       # guides(col = guide_legend(override.aes = list(size = 2))) + -->
+<!--       scale_color_continuous(low = "red", high = "blue") +       -->
+<!--       scale_size_continuous(range = c(0, 5)) + -->
+<!--       scale_fill_continuous(limits=c(0, 1.25), breaks=seq(0,1,by=0.25))+ -->
+<!--       # xlab(if (facet) x) + -->
+<!--       theme_bw() + -->
+<!--       theme( -->
+<!--         panel.grid = element_blank(), -->
+<!--         # legend.key.size = unit(0.5, "lines"), -->
+<!--         plot.title = element_text(hjust = 0.5), -->
+<!--         axis.text.x = element_text(angle = 90, hjust = 1)) -->
+<!--   } -->
+
+
+<!-- plotTopicProfiles2( -->
+<!--     x = mod, -->
+<!--     y = cell_type, -->
+<!--     facet = FALSE, -->
+<!--     min_prop = 0.01, -->
+<!--     ncol = 1)  -->
+<!-- # + -->
+<!-- #     theme(aspect.ratio = 1,axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))       -->
+
+<!-- ``` -->
+
+<!-- Lastly we can take a look at which genes the model learned for each topic. -->
+<!-- Higher values indicate that the gene is more relevant for that topic.  -->
+<!-- In the below table we can see how the top genes for `Topic1` are characteristic -->
+<!-- for B cells (i.e. *Cd79a*, *Cd79b*, *Ms4a1*...). -->
+
+<!-- ```{r basis-dt, message=FALSE, warning=FALSE,results = 'hide'} -->
+<!-- library(NMF) -->
+<!-- sign <- basis(mod) -->
+<!-- colnames(sign) <- paste0("Topic", seq_len(ncol(sign))) -->
+<!-- head(sign) -->
+<!-- # This can be dynamically visualized with DT as shown below -->
+<!-- # DT::datatable(sign, fillContainer = TRUE, filter = "top") -->
+<!-- ``` -->
+
+<!-- ## Spatial Correlation Matrix -->
+
+<!-- See [here](http://www.sthda.com/english/wiki/ggcorrplot-visualization-of-a-correlation-matrix-using-ggplot2)  -->
+<!-- for additional graphical parameters. -->
+
+<!-- ```{r plotCorrelationMatrix, fig.width=9, fig.height=9} -->
+<!-- library(ggcorrplot) -->
+<!-- plotCorrelationMatrix(mat) -->
+<!-- ``` -->
+
+<!-- ## Co-localization -->
+
+<!-- Now that we know which cell types are found within each spot we can make a graph -->
+<!-- representing spatial interactions where cell types will have stronger edges -->
+<!-- between them the more often we find them within the same spot. -->
+
+<!-- See [here](https://www.r-graph-gallery.com/network.html) for additional -->
+<!-- graphical parameters. -->
+
+<!-- ```{r plotInteractions, fig.width=9, fig.height=9} -->
+<!-- # plotInteractions(mat, "heatmap") -->
+<!-- # plotInteractions(mat, "network") -->
+<!-- ``` -->
+
+
+<!-- ```{r, fig.width=12, fig.height=9} -->
+
+<!-- DimPlot(sc_seu, group.by = "Subset", label = TRUE) -->
+<!-- # DimPlot(sc_dataset, group.by = "cell_ontology_class") -->
+<!-- # PCAPlot(sc_dataset, group.by = "cell_ontology_class") -->
+<!-- # UMAPPlot(sc_dataset, group.by = "cell_ontology_class") -->
+<!-- ``` -->
+<!-- ## Scatterpie -->
+
+<!-- We can also visualize the cell type proportions as sections of a pie chart for  -->
+<!-- each spot. You can modify the colors as you would a standard . -->
+
+<!-- ```{r Scatterpie, fig.width=12, fig.height=9} -->
+<!-- # This can be dynamically visualized with DT as shown below -->
+<!-- ct <- colnames(mat) -->
+<!-- mat[mat < 0.1] <- 0 -->
+
+
+<!-- library(RColorBrewer) -->
+
+<!-- if(dataset_name == "Tabula"){ -->
+<!--   n <- 29 -->
+<!-- }else if(dataset_name == "cell2location"){ -->
+<!--   n <- 44 -->
+<!-- }else if(dataset_name == "cell2location34"){ -->
+<!--   n <- 34 -->
+<!-- } -->
+
+
+<!-- colrs <- brewer.pal.info[brewer.pal.info$colorblind == TRUE, ] -->
+<!-- col_vec = unlist(mapply(brewer.pal, colrs$maxcolors, rownames(colrs))) -->
+<!-- set.seed(123) -->
+<!-- col <- sample(col_vec, n) -->
+
+
+<!-- # show T cell and  -->
+<!-- # B cell zones and GCs with follicular dendritic cells (FDCs) -->
+<!-- # FDC, T_CD4+_naive, B_naive -->
+<!-- # Transcriptionally fine subtypes (B_GC_DZ, B_GC_LZ, B_GC_prePB and  -->
+<!-- # T_CD4+_TfH_GC); transcriptionally distinct subtypes (B_Cycling and FDC) -->
+
+
+<!-- paletteMartin <- col -->
+
+<!-- pal <- colorRampPalette(paletteMartin)(length(ct)) -->
+<!-- names(pal) <- ct -->
+<!-- pal_back <- pal -->
+
+
+<!-- plot_3_region <- function(pal) -->
+<!-- { -->
+<!--   for (char in names(pal)) { -->
+<!--   print(char) -->
+<!--   if(char %in% c("T_CD4+_naive","FDC","B_naive") ){ -->
+<!--     if(char == "T_CD4+_naive") -->
+<!--     { -->
+<!--       pal[char] = "#FFFF00" -->
+<!--     } else if (char == "FDC") -->
+<!--     { -->
+<!--       pal[char] = "#add8e6" -->
+<!--     } else if (char == "B_naive") -->
+<!--     { -->
+<!--       pal[char] = "#FF0000" -->
+<!--     } -->
+<!--     next -->
+<!--   } -->
+<!--   pal[char] = "#00008b" -->
+<!-- } -->
+
+<!--   return(pal) -->
+<!-- } -->
+
+<!-- pal = plot_3_region(pal_back) -->
+<!-- plotSpatialScatterpie( -->
+<!--   x = spatial, -->
+<!--   y = mat, -->
+<!--   cell_types = colnames(y), -->
+<!--   img = FALSE, -->
+<!--   scatterpie_alpha = 1, -->
+<!--   pie_scale = 0.4) + -->
+<!--   scale_fill_manual( -->
+<!--     values = pal, -->
+<!--     breaks = names(pal)) -->
+
+<!-- plot_n_cell_type <- function(pal,col_vec,n, cell_type_vector) -->
+<!-- { -->
+<!--   col <- sample(col_vec, n) -->
+<!--   i = 1 -->
+<!--   for (char in names(pal)) { -->
+<!--   print(char) -->
+<!--   if(char %in%  cell_type_vector){ -->
+<!--     pal[char] = col[i] -->
+<!--     i = i + 1 -->
+<!--     next -->
+<!--   } -->
+<!--   pal[char] = "#00008b" -->
+<!-- } -->
+
+<!--   return(pal) -->
+<!-- } -->
+
+<!-- cell_type_vector = c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC", -->
+<!--                  "B_Cycling",  "FDC") -->
+
+<!-- pal = plot_n_cell_type(pal_back,col_vec,6,cell_type_vector) -->
+<!-- plotSpatialScatterpie( -->
+<!--   x = spatial, -->
+<!--   y = mat, -->
+<!--   cell_types = colnames(y), -->
+<!--   img = FALSE, -->
+<!--   scatterpie_alpha = 1, -->
+<!--   pie_scale = 0.4) + -->
+<!--   scale_fill_manual( -->
+<!--     values = pal, -->
+<!--     breaks = names(pal)) -->
+
+<!-- pal = pal_back -->
+<!-- # type(pal) -->
+<!-- plotSpatialScatterpie( -->
+<!--   x = spatial, -->
+<!--   y = mat, -->
+<!--   cell_types = colnames(y), -->
+<!--   img = FALSE, -->
+<!--   scatterpie_alpha = 1, -->
+<!--   pie_scale = 0.4) + -->
+<!--   scale_fill_manual( -->
+<!--     values = pal, -->
+<!--     breaks = names(pal)) -->
+
+<!-- ``` -->
+
+
+
+
+
+<!-- ## Residuals -->
+
+<!-- Lastly we can also take a look at how well the model predicted the proportions -->
+<!-- for each spot. We do this by looking at the residuals of the sum of squares for -->
+<!-- each spot which indicates the amount of biological signal not explained by the model. -->
+<!-- ```{r message=FALSE} -->
+<!-- # library(SpatialExperiment) -->
+<!-- # library(scater) -->
+<!-- # unloadNamespace("SPOTlight") -->
+<!-- # unloadNamespace("Seurat") -->
+<!-- # unloadNamespace("SeuratObject") -->
+<!-- # spatial_dir = 'D:/minor_intership_data/Visium_Spatial_Lymph_Node_Data/data' -->
+<!-- # spatial_residual <- read10xVisium(spatial_dir, -->
+<!-- #                          type = "HDF5", data = "raw", -->
+<!-- #                         images = "lowres",load = FALSE) -->
+<!-- # saveRDS(spatial,"spatial_residual.rds") -->
+<!-- # getwd() -->
+<!-- # rds_file = "spatial_residual.rds" -->
+<!-- # spatial_residual <- readRDS(rds_file) -->
+<!-- #  res_file = paste(dataset_name,"res.rds",sep ="_") -->
+<!-- #  -->
+<!-- #  -->
+<!-- #   rds_file = "cell2location34_res2.rds" -->
+<!-- #   res <- readRDS(rds_file) -->
+<!-- #  -->
+<!-- # spatial_residual$res_ss <- res[[2]][colnames(spatial_residual)] -->
+<!-- # xy <- spatialCoords(spatial_residual) -->
+<!-- # spatial_residual$x <- xy[, 1] -->
+<!-- # spatial_residual$y <- xy[, 2] -->
+
+<!-- # ggcells(spatial_residual, aes(x, y, color = res_ss)) + -->
+<!-- # geom_point() + -->
+<!-- #   scale_color_viridis_c() + -->
+<!-- # coord_fixed() + -->
+<!-- # theme_bw() -->
+
+
+<!-- ``` -->
 
 # Session information
 
@@ -814,12 +1058,9 @@ SpatialFeaturePlot(spatial, features = c("B_naive", "B_preGC"), pt.size.factor =
 
 
 
-# sessionInfo()
+sessionInfo()
 ```
 
 ```{r}
-devtools::install_github("https://github.com/MarcElosua/SPOTlight", ref = "spotlight-0.1.7")
-devtools::install_git("https://github.com/MarcElosua/SPOTlight", ref = "spotlight-0.1.7")
-
 
 ```
