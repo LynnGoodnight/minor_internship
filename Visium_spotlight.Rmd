@@ -33,15 +33,15 @@ setwd("/data/home/lyang/Visium_spotlight")
 
 ```{r load-libs, message = FALSE,  warning = FALSE}
 
-library(Matrix)
+# library(Matrix)
 library(data.table)
 library(Seurat)
 library(SeuratDisk)
 library(dplyr)
-
 library(Seurat)
 
-dataset_name = "cell2location34"
+dataset_name = "in_house"
+# in_house  cell2location34
 sc_dataset_file = paste(dataset_name,"sc_dataset.rds",sep ="_")
 rds_file= sc_dataset_file
 sc_seu <- readRDS(rds_file)
@@ -49,6 +49,47 @@ sc_seu <- readRDS(rds_file)
 rds_file='Visium_spatial.rds'
 sp_seu <- readRDS(rds_file)
 
+```
+
+Quick data exploration:
+
+```{r explo, fig.width=12, fig.height=6}
+# "cell2location34" Tabula
+dataset_name = "in_house"
+sc_dataset = immune.combined
+if(dataset_name == "cell2location34"){
+
+  cell_type_table = as.data.frame(table(sc_dataset$Subset))
+
+}else if(dataset_name == "in_house"){
+  cell_type_table = as.data.frame(table(sc_dataset$blue.main))
+}else if(dataset_name == "cell2location44"){
+  cell_type_table = as.data.frame(table(sc_dataset$CellType))
+}
+
+
+
+
+colnames(cell_type_table) = c("cell_type","frequency")
+library(ggplot2)
+# Basic barplot
+p <- ggplot(data=cell_type_table, aes(x=cell_type, y=frequency,fill=cell_type)) +
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))+
+       geom_text(aes(label=frequency), position=position_dodge(width=0.9), vjust=-0.25)
+
+
+# ggsave(p,filename = "cell_type_histogram.pdf",width = 15,
+#        height = 20)
+
+print(p)
+
+```
+
+
+
+
+```{r}
 if(file.exists("old_version_ls.rds")){
   rds_file= "old_version_ls.rds"
   spotlight_ls <- readRDS(rds_file)
@@ -112,6 +153,8 @@ topic_profile_plts[[2]] + ggplot2::theme(
 topic_profile_plts[[1]] + theme(axis.text.x = element_text(angle = 90), 
                                 axis.text = element_text(size = 12))
 ```
+
+
 ```{r SpatialFeaturePlot}
 
 # change the cell type names in sp_seu, replace _ with . to keep names coincide between sp_seu and decon_mtrx
@@ -383,41 +426,6 @@ SpatialFeaturePlot(spatial, features = c("B.naive", "B.preGC"), pt.size.factor =
 <!-- # table(sc_dataset@meta.data$CellType2) -->
 <!-- # table(sc_dataset@meta.data$Subset) -->
 
-
-<!-- ``` -->
-
-<!-- Quick data exploration: -->
-
-<!-- ```{r explo, fig.width=12, fig.height=6} -->
-<!-- # annotation = "cell2location34" Tabula -->
-<!-- # annotation = "cell2location34" -->
-<!-- dataset_name = "cell2location34" -->
-<!-- if(dataset_name == "cell2location34"){ -->
-
-<!--   cell_type_table = as.data.frame(table(sc_dataset$Subset)) -->
-
-<!-- }else if(dataset_name == "Tabula"){ -->
-<!--   cell_type_table = as.data.frame(table(sc_dataset$cell_ontology_class)) -->
-<!-- }else if(dataset_name == "cell2location44"){ -->
-<!--   cell_type_table = as.data.frame(table(sc_dataset$CellType)) -->
-<!-- } -->
-
-
-
-
-<!-- colnames(cell_type_table) = c("cell_type","frequency") -->
-<!-- library(ggplot2) -->
-<!-- # Basic barplot -->
-<!-- p <- ggplot(data=cell_type_table, aes(x=cell_type, y=frequency,fill=cell_type)) + -->
-<!--   geom_bar(stat="identity")+ -->
-<!--   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))+ -->
-<!--        geom_text(aes(label=frequency), position=position_dodge(width=0.9), vjust=-0.25) -->
-
-
-<!-- # ggsave(p,filename = "cell_type_histogram.pdf",width = 15, -->
-<!-- #        height = 20) -->
-
-<!-- print(p) -->
 
 <!-- ``` -->
 

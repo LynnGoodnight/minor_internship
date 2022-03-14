@@ -3,49 +3,35 @@ title: "cell2location_Visium_RCTD"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-# knitr::opts_chunk$set(echo = TRUE)
-```
-
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r cars, message=FALSE, warning=FALSE}
-# location = "server"
-# # location = "my_computer"
-# if(location == "my_computer"){
-#   setwd("C:/Users/12895/Documents")
-# 
-# }else if(location == "server"){
-#   setwd("/data/home/lyang")
-#   resultsdir <- 'Visium_RCTD' 
-#   dir.create(resultsdir)
-#   setwd("/data/home/lyang/Visium_RCTD")
-# }
+
 setwd("/data/home/lyang/Visium_RCTD")
 
 dyn.load("/data/home/bioinfo/programs/hdf5-1.12.0/hdf5/lib/libhdf5_hl.so.200")
 .libPaths(c("/data/home/lyang/R/x86_64-redhat-linux-gnu-library/4.1",
             "/data/home/bioinfo/R/R4.1.0/library_B3.13",
             "/usr/lib64/R/library","/usr/share/R/library") )
+```
 
+```{r, setup,  warning = FALSE}
+knitr::opts_knit$set(root.dir = "/data/home/lyang/Visium_RCTD")
+setwd("/data/home/lyang/Visium_RCTD")
+```
+
+
+```{r,warning=FALSE}
 init_require_packages <- function(){
   library(Matrix)
   library(spacexr)
-
   library(Seurat)
   library(readxl)
   library(SeuratData)
   library(stringr) 
   library(patchwork)
   library(dplyr)
-
   library(ggplot2)
   library(SeuratDisk)
-
   library(doParallel)
 }
 
@@ -75,14 +61,6 @@ if(file.exists(sc_dataset_file)){
   colnames(x = sc_dataset[[]])
     
 }
-```
-
-
-```{r plot histogram, fig.width=12, fig.height=6}
-
-
-
-
 ```
 
 
@@ -123,7 +101,7 @@ sc_dataset_filtered
 
 # sc_dataset_filtered$CellType
 # # Visualize QC metrics as a violin plot
-VlnPlot(sc_dataset, features = c("n_genes", "nCount_RNA", "percent.mt"), ncol = 3)
+VlnPlot(sc_dataset, features = c("n_genes", "nCount_RNA"), ncol = 2)
 
 ```
 
@@ -162,6 +140,41 @@ ggplot(data = cell_type_table, mapping = aes(x = cell_type,
 geom_point() +geom_line(aes(color=state))+
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))
 ```
+Quick data exploration:
+
+```{r explo, fig.width=12, fig.height=6}
+# annotation = "cell2location34" Tabula
+# annotation = "cell2location34"
+dataset_name = "cell2location34"
+if(dataset_name == "cell2location34"){
+
+  cell_type_table = as.data.frame(table(sc_dataset$Subset))
+
+}else if(dataset_name == "Tabula"){
+  cell_type_table = as.data.frame(table(sc_dataset$cell_ontology_class))
+}else if(dataset_name == "cell2location44"){
+  cell_type_table = as.data.frame(table(sc_dataset$CellType))
+}
+
+
+
+
+colnames(cell_type_table) = c("cell_type","frequency")
+library(ggplot2)
+# Basic barplot
+p <- ggplot(data=cell_type_table, aes(x=cell_type, y=frequency,fill=cell_type)) +
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))+
+       geom_text(aes(label=frequency), position=position_dodge(width=0.9), vjust=-0.25)
+
+
+# ggsave(p,filename = "cell_type_histogram.pdf",width = 15,
+#        height = 20)
+
+print(p)
+
+```
+
 
 ```{r}
 delete_rare_cells <- function(sc_dataset_filtered)
@@ -399,8 +412,9 @@ creat_spatial_RCTD_GeoMx <- function()
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 
 
-```{r, fig.width=10, fig.height=10}
-
+```{r, fig.width=12, fig.height=9}
+library(ggplot2)
+library(SPOTlight)
 normalized_weights <- normalize_weights(myRCTD@results$weights)
 # normalize the cell type proportions to sum to 1.
 class(normalized_weights)
@@ -444,23 +458,94 @@ paletteMartin <- col
 
 pal <- colorRampPalette(paletteMartin)(length(ct))
 names(pal) <- ct
-library(SPOTlight)
 
+
+pal_back <- pal
+
+
+plot_3_region <- function(pal)
+{
+  for (char in names(pal)) {
+  print(char)
+  if(char %in% c("T_CD4+_naive","FDC","B_naive") ){
+    if(char == "T_CD4+_naive")
+    {
+      pal[char] = "#FFFF00"
+    } else if (char == "FDC")
+    {
+      pal[char] = "#add8e6"
+    } else if (char == "B_naive")
+    {
+      pal[char] = "#FF0000"
+    }
+    next
+  }
+  pal[char] = "#00008b"
+}
+
+  return(pal)
+}
+packageVersion("SPOTlight")
+pal = plot_3_region(pal_back)
 
 plotSpatialScatterpie(
     x = spatial,
     y = mat,
-    cell_types = colnames(y),
-    img = FALSE,
-    scatterpie_alpha = 1,
-    pie_scale = 0.4) +
-    scale_fill_manual(
-        values = pal,
-        breaks = names(pal))
+  cell_types = colnames(y),
+  img = FALSE,
+  scatterpie_alpha = 1,
+  pie_scale = 0.4) +
+  scale_fill_manual(
+    values = pal,
+    breaks = names(pal))
+
+plot_n_cell_type <- function(pal,col_vec,n, cell_type_vector)
+{
+  for (char in names(pal)) {
+  # print(char)
+  if(char %in%  cell_type_vector){
+    next
+  }
+  pal[char] = "#00008b"
+}
+
+  return(pal)
+}
+
+cell_type_vector = c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
+                 "B_Cycling",  "FDC")
+
+pal = plot_n_cell_type(pal_back,col_vec,6,cell_type_vector)
+plotSpatialScatterpie(
+    x = spatial,
+    y = mat,
+  cell_types = colnames(y),
+  img = FALSE,
+  scatterpie_alpha = 1,
+  pie_scale = 0.4) +
+  scale_fill_manual(
+    values = pal,
+    breaks = names(pal))
+
+pal = pal_back
+# type(pal)
+plotSpatialScatterpie(
+    x = spatial,
+    y = mat,
+  cell_types = colnames(y),
+  img = FALSE,
+  scatterpie_alpha = 1,
+  pie_scale = 0.4) +
+  scale_fill_manual(
+    values = pal,
+    breaks = names(pal))
+
+
+
 ```
 
 
-```{r, warning=FALSE, fig.width=10, fig.height=10}
+```{r, warning=FALSE, fig.width=10, fig.height=7}
 
 rds_file='predictions.assay.rds'
 predictions.assay <- readRDS(rds_file)
@@ -495,11 +580,15 @@ SpatialFeaturePlot(spatial, features = c("DC_cDC1", "DC_cDC2"), pt.size.factor =
 
 }else if(dataset_name == "cell2location34"){
   
-p = SpatialFeaturePlot(spatial, features = c("B_mem", "B_naive","B_plasma"), pt.size.factor = 1.6, ncol = 3, crop = TRUE)
+# detach("package:SpatialExperiment", unload=TRUE)
+  
+p = SpatialFeaturePlot(spatial, features = c("B_GC_LZ", "T_CD4+_TfH_GC","B_GC_prePB","FDC"), pt.size.factor = 1.6, ncol = 4, crop = TRUE) + ggtitle("germinal center light zone")
 print(p)
-p = SpatialFeaturePlot(spatial, features = c("FDC", "ILC"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)
+ # + scale_fill_continuous(limits = c(0, 1))
+
+p = SpatialFeaturePlot(spatial, features = c("B_Cycling", "B_GC_DZ"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)+ ggtitle("germinal center dark zone") 
 print(p)
-SpatialFeaturePlot(spatial, features = c("T_CD8+_CD161+", "T_CD8+_cytotoxic"), pt.size.factor = 1.6, ncol = 2, crop = TRUE)
+SpatialFeaturePlot(spatial, features = c("B_naive", "B_preGC"), pt.size.factor = 1.6, ncol = 2, crop = TRUE) + ggtitle("B follicle + pre GC") 
 }
 # table(sc_dataset@meta.data$Subset)
 
@@ -508,7 +597,6 @@ SpatialFeaturePlot(spatial, features = c("T_CD8+_CD161+", "T_CD8+_cytotoxic"), p
 
 
 ```
-
 
 ```{r}
 
