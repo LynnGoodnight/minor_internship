@@ -66,6 +66,7 @@ if(file.exists(sc_dataset_file)){
 
 ```{r}
 
+
 qc_filter_sc <- function(sc_dataset,dataset_name){
   colnames(x = sc_dataset[[]])
   if(dataset_name == "cell2location"){
@@ -331,6 +332,7 @@ if (file.exists(puck_file)){
 
 ```
 
+
 ```{r}
 library(quadprog)
 
@@ -516,7 +518,7 @@ cell_type_vector = c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
                  "B_Cycling",  "FDC")
 
 pal = plot_n_cell_type(pal_back,col_vec,6,cell_type_vector)
-plotSpatialScatterpie(
+p1 = plotSpatialScatterpie(
     x = spatial,
     y = mat,
   cell_types = colnames(y),
@@ -598,6 +600,175 @@ SpatialFeaturePlot(spatial, features = c("B_naive", "B_preGC"), pt.size.factor =
 
 ```
 
+
+
+
+
 ```{r}
+# Leave out selected cell types (B_GC_DZ, B_GC_LZ, B_GC_prePB, T_CD4+_TfH_GC, B_Cycling and FDC, these six subtypes are expected to be present in annotated GC (positive locations) one by one using ‘subset’ command.
+# for (selected_type in c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
+#                  "B_Cycling",  "FDC") )
+# {
+#   # selected_type = "B_GC_DZ"
+#   Idents(sc_dataset_filtered.downsampled) <- 'Subset'
+#   sc_reference <- subset(sc_dataset_filtered.downsampled, subset = Subset != selected_type)
+#   table(sc_reference@meta.data$Subset)
+#   reference = Create_Reference_object(sc_reference)
+#   
+#   RCTD_file = paste(dataset_name,"full_RCTD", selected_type, ".rds",sep ="_")
+#   library(quadprog)
+#   myRCTD <- create.RCTD(puck, reference, max_cores = 18)
+#   myRCTD <- run.RCTD(myRCTD, doublet_mode = 'full')
+#   saveRDS(myRCTD,RCTD_file)
+#   print(RCTD_file)
+# }
+# getwd()
+```
+
+
+
+
+```{r}
+
+
+library(ggplot2)
+library(SPOTlight)
+
+manual_GC_annotation = read.csv("/data/home/lyang/scripts_git/manual_GC_annotation.csv")
+rds_file = "Visium_spatial.rds"
+spatial <- readRDS(rds_file)
+spatial@meta.data$Barcode = rownames(spatial@meta.data)
+spatial@meta.data = merge(spatial@meta.data, manual_GC_annotation, by = "Barcode", sort = FALSE)
+
+spatial@meta.data[spatial@meta.data$GC == '',"GC"] = "no"
+
+p2 <- SpatialDimPlot(spatial, group.by = "GC") + scale_y_reverse()
+# p1 + p2
+print(p2)
+print(p1)
+
+for (selected_type in c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
+                 "B_Cycling",  "FDC") )
+{
+  RCTD_file = paste(dataset_name,"full_RCTD", selected_type, ".rds",sep ="_")
+  rds_file = RCTD_file
+  myRCTD_deleted <- readRDS(rds_file)   
+  normalized_weights_deleted <- normalize_weights(myRCTD_deleted@results$weights)
+  # normalize the cell type proportions to sum to 1.
+  matrix_result_deleted = as(normalized_weights_deleted,'matrix')
+  mat <- matrix_result_deleted
+  ct <- colnames(mat)
+  mat[mat < 0.1] <- 0
+  
+  
+  library(RColorBrewer)
+  
+  n <- 34
+  
+  
+  
+  colrs <- brewer.pal.info[brewer.pal.info$colorblind == TRUE, ]
+  col_vec = unlist(mapply(brewer.pal, colrs$maxcolors, rownames(colrs)))
+  col <- sample(col_vec, n)
+  rds_file = "Visium_spatial.rds"
+  spatial <- readRDS(rds_file)
+  
+  # test = spatial@assays$Spatial@counts@Dimnames[[2]] %in% rownames(norm_weights_matrix)
+  # which(test == FALSE)
+  # spatial@assays$Spatial@counts@Dimnames[[2]][464]
+  # spatial@assays$Spatial@counts@Dimnames[[2]][1343]
+  spatial@meta.data$spot_name  <- rownames(spatial@meta.data)
+  spatial = subset(spatial,spot_name !="ACTGTAGCACTTTGGA-1" )
+  spatial = subset(spatial,spot_name !="CCCGCCATGCTCCCGT-1")
+  
+  
+  # Define color palette
+  # (here we use 'paletteMartin' from the 'colorBlindness' package)
+  paletteMartin <- col
+  
+  pal <- colorRampPalette(paletteMartin)(length(ct))
+  names(pal) <- ct
+  
+  
+  pal_back <- pal
+  
+  plot_n_cell_type <- function(pal,col_vec,n, cell_type_vector)
+  {
+    for (char in names(pal)) {
+    # print(char)
+    if(char %in%  cell_type_vector){
+      next
+    }
+    pal[char] = "#00008b"
+  }
+  
+    return(pal)
+  }
+  
+  cell_type_vector = c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
+                   "B_Cycling",  "FDC")
+  
+  pal = plot_n_cell_type(pal_back,col_vec,6,cell_type_vector)
+  p1 = plotSpatialScatterpie(
+      x = spatial,
+      y = mat,
+    cell_types = colnames(y),
+    img = FALSE,
+    scatterpie_alpha = 1,
+    pie_scale = 0.4) +
+    scale_fill_manual(
+      values = pal,
+      breaks = names(pal))
+  print(p1)  
+}
+  
+
+
+```
+
+
+```{r}
+rmsd_summary = rep(0,6)
+names(rmsd_summary) = c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
+                 "B_Cycling",  "FDC")
+
+
+for (selected_type in c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
+                 "B_Cycling",  "FDC") )
+{
+  matrix_result_complete = norm_weights_matrix
+  RCTD_file = paste(dataset_name,"full_RCTD", selected_type, ".rds",sep ="_")
+  rds_file = RCTD_file
+  myRCTD_deleted <- readRDS(rds_file)   
+  normalized_weights_deleted <- normalize_weights(myRCTD_deleted@results$weights)
+  # normalize the cell type proportions to sum to 1.
+  matrix_result_deleted = as(normalized_weights_deleted,'matrix')
+  matrix_result_deleted = as.data.frame(matrix_result_deleted)
+  matrix_result_deleted$selected_type = rep(0,nrow(matrix_result_deleted))
+  selected_column = matrix_result_complete[,selected_type]
+  matrix_result_complete = as.data.frame(matrix_result_complete)
+  df = matrix_result_complete[,!(names(matrix_result_complete) == selected_type)]
+  df$selected_type = selected_column
+  matrix_result_complete = as.matrix(df)
+  matrix_result_deleted = as.matrix(matrix_result_deleted)
+  
+  
+  # for each spatial spot, Calculate the root-mean-square error (RMSE) distance between the predicted proportion under different reference dataset situations
+  # load("/data/home/lyang/Visium_RCTD/.RData")
+  
+  
+  matrix_substrated = matrix_result_complete - matrix_result_deleted
+  rmsd_per_spot = sqrt(rowSums(matrix_substrated^2)/ncol(matrix_substrated))
+  rmsd_per_situation = sum(rmsd_per_spot)
+  rmsd_summary[selected_type] = rmsd_per_situation
+  
+}
+
+
+df <- data.frame(deleted_cell_type=names(rmsd_summary),
+                RMSD=rmsd_summary  )
+p<-ggplot(data=df, aes(x=deleted_cell_type, y=RMSD)) +
+  geom_bar(stat="identity")
+p
 
 ```
