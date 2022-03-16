@@ -29,7 +29,7 @@ setwd("/data/home/lyang/Visium_spotlight")
 
 
 
-# Load packages {.unnumbered}
+# Load packages 
 
 ```{r load-libs, message = FALSE,  warning = FALSE}
 
@@ -40,7 +40,7 @@ library(SeuratDisk)
 library(dplyr)
 library(Seurat)
 
-dataset_name = "in_house"
+dataset_name = "cell2location34"
 # in_house  cell2location34
 sc_dataset_file = paste(dataset_name,"sc_dataset.rds",sep ="_")
 rds_file= sc_dataset_file
@@ -54,9 +54,9 @@ sp_seu <- readRDS(rds_file)
 Quick data exploration:
 
 ```{r explo, fig.width=12, fig.height=6}
-# "cell2location34" Tabula
-dataset_name = "in_house"
-sc_dataset = immune.combined
+# "cell2location34" Tabula in_house
+dataset_name = "cell2location34"
+sc_dataset = sc_seu
 if(dataset_name == "cell2location34"){
 
   cell_type_table = as.data.frame(table(sc_dataset$Subset))
@@ -90,6 +90,7 @@ print(p)
 
 
 ```{r}
+getwd()
 if(file.exists("old_version_ls.rds")){
   rds_file= "old_version_ls.rds"
   spotlight_ls <- readRDS(rds_file)
@@ -112,6 +113,7 @@ set.seed(123)
 setwd("/data/home/lyang/Visium_spotlight")
 
 start_time <- Sys.time()
+library(SPOTlight, lib.loc="/data/home/bioinfo/R/R4.1.0/library_B3.13/old_versions/")
 spotlight_ls <- spotlight_deconvolution(se_sc = sc_seu,
                                       counts_spatial = sp_seu@assays$Spatial@counts,
                                       clust_vr = "Subset",
@@ -368,6 +370,76 @@ SpatialFeaturePlot(spatial, features = c("B.naive", "B.preGC"), pt.size.factor =
 
 ```
 
+
+
+
+```{r}
+# Leave out selected cell types from sc reference dataset(B_GC_DZ, B_GC_LZ, B_GC_prePB, T_CD4+_TfH_GC, B_Cycling and FDC, these six subtypes are expected to be present in annotated GC (positive locations) one by one using ‘subset’ command.
+
+
+# sc_seu <- SCTransform(sc_seu, verbose = FALSE) %>% RunPCA(verbose = FALSE)
+# sp_seu <- SCTransform(sp_seu,assay = "Spatial", verbose = FALSE) %>% RunPCA(verbose = FALSE)
+# saveRDS(sp_seu,"sp_seu_SCTransform.rds")
+# saveRDS(sc_seu,"sc_seu_SCTransform.rds")
+
+
+rds_file= "sp_seu_SCTransform.rds"
+sp_seu <- readRDS(rds_file)
+rds_file= "sc_seu_SCTransform.rds"
+sc_seu <- readRDS(rds_file)
+
+#### Extract the top marker genes from each cluster ####
+# Seurat::Idents(object = sc_seu) <- sc_seu@meta.data$Subset
+# cluster_markers_all <- Seurat::FindAllMarkers(object = sc_seu, 
+#                                               assay = "RNA",
+#                                               slot = "data",
+#                                               verbose = TRUE, 
+#                                               only.pos = TRUE, 
+#                                               logfc.threshold = 1,
+#                                               min.pct = 0.9)
+# saveRDS(cluster_markers_all,"cluster_markers_all.rds")
+# Leave out selected cell types from  marker genes variables
+
+rds_file= "cluster_markers_all.rds"
+cluster_markers_all <- readRDS(rds_file)
+
+
+for (selected_type in c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
+                 "B_Cycling",  "FDC") )
+{
+  selected_type = "B_GC_DZ"
+
+  spotlight_result_file = paste(dataset_name,"spotlight_deleted", selected_type, ".rds",sep ="_")
+  sc_reference <- subset(sc_seu, subset = Subset != selected_type)
+  
+  #### Extract the top marker genes from each cluster ####
+  Seurat::Idents(object = sc_reference) <- sc_reference@meta.data$Subset
+
+  set.seed(123)
+  setwd("/data/home/lyang/Visium_spotlight")
+ unloadNamespace("SPOTlight") 
+library(SPOTlight, lib.loc="/data/home/bioinfo/R/R4.1.0/library_B3.13/old_versions/")
+  spotlight_ls <- spotlight_deconvolution(se_sc = sc_reference,
+                                        counts_spatial = sp_seu@assays$Spatial@counts,
+                                        clust_vr = "Subset",
+                                        cluster_markers = cluster_markers_all,
+                                        cl_n = 100, # 100 by default
+                                        hvg = 5000,
+                                        ntop = NULL,
+                                        transf = "uv",
+                                        method = "nsNMF",
+                                        min_cont = 0.09)
+
+  saveRDS(spotlight_ls,spotlight_result_file)
+  print(spotlight_result_file)
+    
+}
+getwd()
+```
+
+
+
+
 <!-- ```{r initiate packages} -->
 
 <!-- # init_require_packages <- function(){ -->
@@ -543,7 +615,7 @@ SpatialFeaturePlot(spatial, features = c("B.naive", "B.preGC"), pt.size.factor =
 <!--   rds_file= "sp_seu_SCTransform.rds" -->
 <!--   sp_seu <- readRDS(rds_file) -->
 <!--   rds_file= "sc_seu_SCTransform.rds" -->
-<!--   sc_seu <- readRDS(rds_file)   -->
+<!--   sc_seu <- readRDS(rds_file) -->
 
 <!-- }else{ -->
 <!-- sc_seu <- SCTransform(sc_seu, verbose = FALSE) -->

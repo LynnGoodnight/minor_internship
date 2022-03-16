@@ -20,7 +20,7 @@ setwd("/data/home/lyang/Visium_RCTD")
 ```
 
 
-```{r,warning=FALSE}
+```{r,warning=FALSE, message=FALSE}
 init_require_packages <- function(){
   library(Matrix)
   library(spacexr)
@@ -468,7 +468,7 @@ pal_back <- pal
 plot_3_region <- function(pal)
 {
   for (char in names(pal)) {
-  print(char)
+  # print(char)
   if(char %in% c("T_CD4+_naive","FDC","B_naive") ){
     if(char == "T_CD4+_naive")
     {
