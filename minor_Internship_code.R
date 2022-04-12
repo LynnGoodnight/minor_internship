@@ -351,7 +351,7 @@ Tabula_sc.downsampled = subsample_cells(Tabula_sc)
 # plot1 <- VariableFeaturePlot(Tabula_sc_filtered)
 # plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
 # plot1 + plot2
-# unsure whether a global-scaling normalization method ¡°LogNormalize¡± is necesssary for FindVariableFeatures
+# unsure whether a global-scaling normalization method ??LogNormalize?? is necesssary for FindVariableFeatures
 
 ############################################## import sc dataset to RCTD####
 #find cell types that have less than 25 cells/cell type, delete these cell types and cells belong to them
@@ -811,3 +811,12 @@ sum_PR_curve.area = PR_curve.area@y.values[[1]] + sum_PR_curve.area
 PR_curve = performance(pred, measure = "prec", x.measure = "rec")
 plot(PR_curve)
 
+# if(i ==1)
+#   {
+#   plot(PR_curve,colorize = FALSE,main = remain_type, sub = c("score :" , round(PR_curve.area@y.values[[1]]),digits = 2) )
+#   
+#        i = i+1}else{
+#          
+#               plot(PR_curve,colorize = FALSE, main = remain_type, sub = c("score :" , round(PR_curve.area@y.values[[1]]),digits = 2) ,add = TRUE,col= colors[i]) 
+#          i = i+1
+#        } 

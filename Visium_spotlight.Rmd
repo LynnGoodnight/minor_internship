@@ -38,7 +38,7 @@ library(data.table)
 library(Seurat)
 library(SeuratDisk)
 library(dplyr)
-library(Seurat)
+
 
 dataset_name = "cell2location34"
 # in_house  cell2location34
@@ -91,12 +91,30 @@ print(p)
 
 ```{r}
 getwd()
+
 if(file.exists("old_version_ls.rds")){
   rds_file= "old_version_ls.rds"
   spotlight_ls <- readRDS(rds_file)
   nmf_mod <- spotlight_ls[[1]]
   decon_mtrx <- spotlight_ls[[2]]
   }else{
+    Idents(sc_seu) = sc_seu$Subset
+sc_seu = sc_seu[!is.na(sc_seu@assays$RNA@meta.features$`GeneID-2`),]
+sc_seu = sc_seu[!duplicated(sc_seu@assays$RNA@meta.features$`GeneID-2`),]
+
+
+rownames(sc_seu@assays$RNA@meta.features) = sc_seu@assays$RNA@meta.features$`GeneID-2`
+rownames(sc_seu@assays$RNA@counts) = sc_seu@assays$RNA@meta.features$`GeneID-2`
+rownames(sc_seu@assays$RNA@data) = sc_seu@assays$RNA@meta.features$`GeneID-2`
+
+sp_seu = sp_seu[!is.na(sp_seu@assays[["Spatial"]]@counts@Dimnames[[1]]),]
+sp_seu = sp_seu[!duplicated(sp_seu@assays[["Spatial"]]@counts@Dimnames[[1]]),]
+rownames(sp_seu@assays[["Spatial"]]@meta.features) = sp_seu@assays[["Spatial"]]@counts@Dimnames[[1]]
+
+rownames(sp_seu@assays$Spatial@counts) = sp_seu@assays[["Spatial"]]@counts@Dimnames[[1]]
+rownames(sp_seu@assays$Spatial@data) = sp_seu@assays[["Spatial"]]@counts@Dimnames[[1]]
+
+sc_seu@meta.data = rename(sc_seu@meta.data, sample='ID')
 sc_seu <- SCTransform(sc_seu, verbose = FALSE) %>% RunPCA(verbose = FALSE)
 sp_seu <- SCTransform(sp_seu,assay = "Spatial", verbose = FALSE) %>% RunPCA(verbose = FALSE)
 
@@ -109,9 +127,22 @@ cluster_markers_all <- Seurat::FindAllMarkers(object = sc_seu,
                                               only.pos = TRUE, 
                                               logfc.threshold = 1,
                                               min.pct = 0.9)
-set.seed(123)
+
+saveRDS(cluster_markers_all,"cluster_markers_all.rds")
 setwd("/data/home/lyang/Visium_spotlight")
 
+
+# count_matrix <- as.matrix(sc_seu@assays$RNA@counts)
+# 
+# # removing genes not expressed in 3% of the cells
+# min_cells <- 0.03 * ncol(sc_seu)
+# 
+# logic_vector = rowSums(count_matrix != 0) > min_cells
+# 
+# abundant_genes = rownames(sc_seu@assays$RNA@counts[logic_vector,])
+# sc_seu <- subset(sc_seu, features = abundant_genes)
+
+set.seed(123)
 start_time <- Sys.time()
 library(SPOTlight, lib.loc="/data/home/bioinfo/R/R4.1.0/library_B3.13/old_versions/")
 spotlight_ls <- spotlight_deconvolution(se_sc = sc_seu,
@@ -130,10 +161,8 @@ end_time - start_time
     
   }
 
-
-
-
 ```
+
 
 ```{r, fig.width=15, fig.height=10}
 unloadNamespace("SPOTlight")
@@ -157,7 +186,7 @@ topic_profile_plts[[1]] + theme(axis.text.x = element_text(angle = 90),
 ```
 
 
-```{r SpatialFeaturePlot}
+```{r modify decon_mtrx variable}
 
 # change the cell type names in sp_seu, replace _ with . to keep names coincide between sp_seu and decon_mtrx
 decon_mtrx_sub <- decon_mtrx[, colnames(decon_mtrx) != "res_ss"]
@@ -174,7 +203,7 @@ sp_seu@meta.data <- sp_seu@meta.data %>%
   dplyr::left_join(decon_df, by = "barcodes") %>%
   tibble::column_to_rownames("barcodes")
 
-
+norm_weights_matrix = decon_mtrx
 
 # Seurat::SpatialFeaturePlot(
 #   object = sp_seu,
@@ -206,7 +235,7 @@ getwd()
 unloadNamespace("SPOTlight")
 library(SPOTlight)
 
-ct <- colnames(decon_mtrx)
+ct <- colnames(decon_mtrx[,-ncol(decon_mtrx)])
 decon_mtrx[decon_mtrx < 0.1] <- 0
 
 
@@ -244,7 +273,7 @@ pal_back <- pal
 plot_3_region <- function(pal)
 {
   for (char in names(pal)) {
-  print(char)
+  # print(char)
   if(char %in% c("T.CD4..naive","FDC","B.naive") ){
     if(char == "T.CD4..naive")
     {
@@ -275,12 +304,12 @@ plotSpatialScatterpie(
   pie_scale = 0.4) +
   scale_fill_manual(
     values = pal,
-    breaks = names(pal))
+    breaks = names(pal))+ scale_y_reverse()
 
 plot_n_cell_type <- function(pal,col_vec,n, cell_type_vector)
 {
   for (char in names(pal)) {
-  print(char)
+  # print(char)
   if(char %in%  cell_type_vector){
     next
   }
@@ -303,7 +332,7 @@ plotSpatialScatterpie(
   pie_scale = 0.4) +
   scale_fill_manual(
     values = pal,
-    breaks = names(pal))
+    breaks = names(pal))+ scale_y_reverse()
 
 pal = pal_back
 # type(pal)
@@ -316,13 +345,13 @@ plotSpatialScatterpie(
   pie_scale = 0.4) +
   scale_fill_manual(
     values = pal,
-    breaks = names(pal))
+    breaks = names(pal))+ scale_y_reverse()
 
 ```
 
 
 
-```{r, warning=FALSE, fig.width=10, fig.height=10}
+```{r plot selected cell types on spatial images, warning=FALSE, fig.width=10, fig.height=10}
 
 rds_file='predictions.assay.rds'
 predictions.assay <- readRDS(rds_file)
@@ -403,39 +432,279 @@ sc_seu <- readRDS(rds_file)
 rds_file= "cluster_markers_all.rds"
 cluster_markers_all <- readRDS(rds_file)
 
+#  unloadNamespace("SPOTlight") 
+# library(SPOTlight, lib.loc="/data/home/bioinfo/R/R4.1.0/library_B3.13/old_versions/")
+# for (selected_type in c( "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
+#                  "B_Cycling",  "FDC") )
+# {
+#   # selected_type = "B_GC_DZ"
+# 
+#   spotlight_result_file = paste(dataset_name,"spotlight_deleted", selected_type, ".rds",sep ="_")
+#   sc_reference <- subset(sc_seu, subset = Subset != selected_type)
+#   
+#   #### Extract the top marker genes from each cluster ####
+#   Seurat::Idents(object = sc_reference) <- sc_reference@meta.data$Subset
+# 
+#   set.seed(123)
+#   setwd("/data/home/lyang/Visium_spotlight")
+# 
+#   spotlight_ls <- spotlight_deconvolution(se_sc = sc_reference,
+#                                         counts_spatial = sp_seu@assays$Spatial@counts,
+#                                         clust_vr = "Subset",
+#                                         cluster_markers = cluster_markers_all,
+#                                         cl_n = 100, # 100 by default
+#                                         hvg = 5000,
+#                                         ntop = NULL,
+#                                         transf = "uv",
+#                                         method = "nsNMF",
+#                                         min_cont = 0.09)
+# 
+#   saveRDS(spotlight_ls,spotlight_result_file)
+#   print(spotlight_result_file)
+#     
+# }
+# getwd()
+```
 
-for (selected_type in c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
-                 "B_Cycling",  "FDC") )
+```{r calculate RMSE when deleted different cell types}
+
+rmsd_summary = rep(0,6)
+names(rmsd_summary) =  c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC",
+                 "B.Cycling",  "FDC")
+
+manual_GC_annotation = read.csv("/data/home/lyang/scripts_git/manual_GC_annotation.csv")
+rds_file = "Visium_spatial.rds"
+spatial <- readRDS(rds_file)
+spatial@meta.data$Barcode = rownames(spatial@meta.data)
+spatial@meta.data = merge(spatial@meta.data, manual_GC_annotation, by = "Barcode", sort = FALSE)
+
+spatial@meta.data[spatial@meta.data$GC == '',"GC"] = "no"
+
+p2 <- SpatialDimPlot(spatial, group.by = "GC") 
+# p1 + p2
+print(p2)
+
+
+
+
+
+for (selected_type in  c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC",
+                 "B.Cycling",  "FDC") )
 {
-  selected_type = "B_GC_DZ"
+  # selected_type = "B.GC.DZ"
 
   spotlight_result_file = paste(dataset_name,"spotlight_deleted", selected_type, ".rds",sep ="_")
-  sc_reference <- subset(sc_seu, subset = Subset != selected_type)
-  
-  #### Extract the top marker genes from each cluster ####
-  Seurat::Idents(object = sc_reference) <- sc_reference@meta.data$Subset
-
-  set.seed(123)
   setwd("/data/home/lyang/Visium_spotlight")
- unloadNamespace("SPOTlight") 
-library(SPOTlight, lib.loc="/data/home/bioinfo/R/R4.1.0/library_B3.13/old_versions/")
-  spotlight_ls <- spotlight_deconvolution(se_sc = sc_reference,
-                                        counts_spatial = sp_seu@assays$Spatial@counts,
-                                        clust_vr = "Subset",
-                                        cluster_markers = cluster_markers_all,
-                                        cl_n = 100, # 100 by default
-                                        hvg = 5000,
-                                        ntop = NULL,
-                                        transf = "uv",
-                                        method = "nsNMF",
-                                        min_cont = 0.09)
+  rds_file= spotlight_result_file
+  spotlight_ls <- readRDS(rds_file)
+  nmf_mod <- spotlight_ls[[1]]
+  decon_mtrx <- spotlight_ls[[2]]
+  
+  
+  
+  # change the cell type names in sp_seu, replace _ with . to keep names coincide between sp_seu and decon_mtrx
+  decon_mtrx_sub <- decon_mtrx[, colnames(decon_mtrx) != "res_ss"]
+  decon_mtrx_sub[decon_mtrx_sub < 0.08] <- 0
+  decon_mtrx <- cbind(decon_mtrx_sub, "res_ss" = decon_mtrx[, "res_ss"])
+  rownames(decon_mtrx) <- colnames(sp_seu)
+  
+  decon_df <- decon_mtrx %>%
+    data.frame() %>%
+    tibble::rownames_to_column("barcodes")
+  
+  sp_seu@meta.data <- sp_seu@meta.data %>%
+    tibble::rownames_to_column("barcodes") %>%
+    dplyr::left_join(decon_df, by = "barcodes") %>%
+    tibble::column_to_rownames("barcodes")  
+  
+  matrix_result_complete = norm_weights_matrix[,-ncol(norm_weights_matrix)]
 
-  saveRDS(spotlight_ls,spotlight_result_file)
-  print(spotlight_result_file)
-    
+  matrix_result_deleted = as.data.frame(decon_mtrx[,-ncol(decon_mtrx)])
+  matrix_result_deleted$selected_type = rep(0,nrow(matrix_result_deleted))
+  selected_column = matrix_result_complete[,selected_type]
+  matrix_result_complete = as.data.frame(matrix_result_complete)
+  df = matrix_result_complete[,!(names(matrix_result_complete) == selected_type)]
+  df$selected_type = selected_column
+  matrix_result_complete = as.matrix(df)
+  matrix_result_deleted = as.matrix(matrix_result_deleted)
+  
+  
+  # for each spatial spot, Calculate the root-mean-square error (RMSE) distance between the predicted proportion under different reference dataset situations
+  # load("/data/home/lyang/Visium_RCTD/.RData")
+  
+  
+  matrix_substrated = matrix_result_complete - matrix_result_deleted
+  rmsd_per_spot = sqrt(rowSums(matrix_substrated^2)/ncol(matrix_substrated))
+  rmsd_per_situation = sum(rmsd_per_spot)
+  rmsd_summary[selected_type] = rmsd_per_situation
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  unloadNamespace("SPOTlight")
+  library(SPOTlight)
+  
+  ct <- colnames(decon_mtrx)
+  decon_mtrx[decon_mtrx < 0.1] <- 0
+  
+  
+  # # show T cell and 
+  # # B cell zones and GCs with follicular dendritic cells (FDCs)
+  # # FDC, T_CD4+_naive, B_naive
+  # # Transcriptionally fine subtypes (B_GC_DZ, B_GC_LZ, B_GC_prePB and 
+  # # T_CD4+_TfH_GC); transcriptionally distinct subtypes (B_Cycling and FDC)
+
+  library(ggplot2)
+  
+  plot_n_cell_type <- function(pal,col_vec,n, cell_type_vector)
+  {
+    for (char in names(pal)) {
+    # print(char)
+    if(char %in%  cell_type_vector){
+      next
+    }
+    pal[char] = "#00008b"
+  }
+  
+    return(pal)
+  }
+  
+  cell_type_vector = c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC",
+                   "B.Cycling",  "FDC")
+  
+  pal = plot_n_cell_type(pal_back,col_vec,6,cell_type_vector)
+  p1 = plotSpatialScatterpie(
+    x = sp_seu,
+    y = decon_mtrx[,-ncol(decon_mtrx)],
+    cell_types = colnames(y),
+    img = FALSE,
+    scatterpie_alpha = 1,
+    pie_scale = 0.4) +
+    scale_fill_manual(
+      values = pal,
+      breaks = names(pal)) + scale_y_reverse()
+   print(p1)
 }
-getwd()
+
+df <- data.frame(deleted_cell_type=names(rmsd_summary),
+                RMSD=rmsd_summary  )
+p<-ggplot(data=df, aes(x=deleted_cell_type, y=RMSD)) +
+  geom_bar(stat="identity")
+p
+
+
 ```
+
+```{r}
+# Evaluate the area under Precision Recall curve separately for each cell type, then treat all classes equally and take the average across remaining 5 GC cell types
+library(ROCR)
+average_PR_curve.area = rep(0,7)
+names(average_PR_curve.area) = c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC", "B.Cycling",  "FDC","complete")
+manual_GC_annotation = read.csv("/data/home/lyang/scripts_git/manual_GC_annotation.csv")
+
+getwd()
+
+for (deleted_type in c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC", "B.Cycling",  "FDC","complete") )
+{
+
+  if(deleted_type == "complete"){
+    rds_file= "old_version_ls.rds"
+  }else{
+  spotlight_result_file = paste(dataset_name,"spotlight_deleted", deleted_type, ".rds",sep ="_")
+  rds_file= spotlight_result_file
+  }
+    spotlight_ls <- readRDS(rds_file)
+    nmf_mod <- spotlight_ls[[1]]
+    decon_mtrx <- spotlight_ls[[2]]  
+    
+    
+  # change the cell type names in sp_seu, replace _ with . to keep names coincide between sp_seu and decon_mtrx
+  decon_mtrx_sub <- decon_mtrx[, colnames(decon_mtrx) != "res_ss"]
+  # decon_mtrx_sub[decon_mtrx_sub < 0.08] <- 0
+  decon_mtrx <- cbind(decon_mtrx_sub, "res_ss" = decon_mtrx[, "res_ss"])
+  rownames(decon_mtrx) <- colnames(sp_seu)
+  
+  decon_df <- decon_mtrx %>%
+    data.frame() %>%
+    tibble::rownames_to_column("barcodes")
+  
+  sp_seu@meta.data <- sp_seu@meta.data %>%
+    tibble::rownames_to_column("barcodes") %>%
+    dplyr::left_join(decon_df, by = "barcodes") %>%
+    tibble::column_to_rownames("barcodes")  
+
+  matrix_result_deleted = decon_mtrx[,-ncol(decon_mtrx)]
+  sum_PR_curve.area = 0
+  # Evaluate the area under Precision Recall curve separately for each cell type
+  i = 1
+  for (remain_type in c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC", "B.Cycling",  "FDC") )
+{
+    if(remain_type == deleted_type){
+      next
+    }
+      print(c("deleted_type",deleted_type,"remain_type",remain_type))
+    proportions = as.data.frame(matrix_result_deleted[,remain_type]) 
+    colnames(proportions) = remain_type
+    manual_GC_annotation[manual_GC_annotation$GC == '',"GC"] = 0
+    manual_GC_annotation[manual_GC_annotation$GC == 'GC',"GC"] = 1
+    proportions$Barcode = rownames(proportions)
+    proportions_label = merge(proportions,manual_GC_annotation,by = "Barcode")
+    
+    
+    pred <- prediction(proportions_label[,2],proportions_label[,3])
+    
+    PR_curve.area = performance(pred, measure = "aucpr")
+    PR_curve.area@y.values[[1]]
+    sum_PR_curve.area = PR_curve.area@y.values[[1]] + sum_PR_curve.area
+    
+    PR_curve = performance(pred, measure = "prec", x.measure = "rec")
+    if(i ==1)
+  {
+  df_all <- data.frame(cell_type=rep(remain_type,each=length(PR_curve@x.values[[1]])), 
+  recall=c(PR_curve@x.values[[1]]),
+  precision=c(PR_curve@y.values[[1]])) 
+  i = i + 1 
+    }else{
+
+  df <- data.frame(cell_type=rep(remain_type,each=length(PR_curve@x.values[[1]])), 
+  recall=c(PR_curve@x.values[[1]]),
+  precision=c(PR_curve@y.values[[1]]))
+  df_all =  rbind(df_all,df)    
+  i = i + 1 
+  }
+  }
+  library(ggplot2)
+  df_all$cell_type = as.factor(df_all$cell_type)
+  plt <- ggplot(df_all, aes(x=recall, y=precision, color=cell_type)) + geom_line()+
+    ggtitle(deleted_type)
+  print(plt)
+  
+  average_PR_curve.area[deleted_type] = sum_PR_curve.area/5
+
+  
+}
+
+
+df <- data.frame(deleted_cell_type=names(average_PR_curve.area),
+                average_area_PR_curve=average_PR_curve.area, similarity = "similar"  )
+df[df$deleted_cell_type %in% c("B.Cycling" , "FDC"),"similarity"] = "distinct"
+
+ref_line = df["complete",2]
+df = df[df$deleted_cell_type!="complete",]
+
+p <-ggplot(data=df, aes(x=deleted_cell_type,y=average_area_PR_curve,fill=similarity)) +  geom_bar(stat="identity") + geom_hline(yintercept=ref_line, linetype="dashed", color = "red")
+p
+
+
+
+
+```
+
 
 
 

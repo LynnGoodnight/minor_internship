@@ -42,6 +42,8 @@ dataset_name = "cell2location"
 # dataset_name = "Tabula" "cell2location"
 sc_dataset_file = paste(dataset_name,"sc_dataset.rds",sep ="_")
 
+
+
 if(file.exists(sc_dataset_file)){
   rds_file= sc_dataset_file
   sc_dataset <- readRDS(rds_file)
@@ -499,7 +501,7 @@ plotSpatialScatterpie(
   pie_scale = 0.4) +
   scale_fill_manual(
     values = pal,
-    breaks = names(pal))
+    breaks = names(pal))+ scale_y_reverse()
 
 plot_n_cell_type <- function(pal,col_vec,n, cell_type_vector)
 {
@@ -527,7 +529,7 @@ p1 = plotSpatialScatterpie(
   pie_scale = 0.4) +
   scale_fill_manual(
     values = pal,
-    breaks = names(pal))
+    breaks = names(pal))+ scale_y_reverse()
 
 pal = pal_back
 # type(pal)
@@ -540,7 +542,7 @@ plotSpatialScatterpie(
   pie_scale = 0.4) +
   scale_fill_manual(
     values = pal,
-    breaks = names(pal))
+    breaks = names(pal))+ scale_y_reverse()
 
 
 
@@ -642,7 +644,7 @@ spatial@meta.data = merge(spatial@meta.data, manual_GC_annotation, by = "Barcode
 
 spatial@meta.data[spatial@meta.data$GC == '',"GC"] = "no"
 
-p2 <- SpatialDimPlot(spatial, group.by = "GC") + scale_y_reverse()
+p2 <- SpatialDimPlot(spatial, group.by = "GC") 
 # p1 + p2
 print(p2)
 print(p1)
@@ -718,7 +720,7 @@ for (selected_type in c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
     pie_scale = 0.4) +
     scale_fill_manual(
       values = pal,
-      breaks = names(pal))
+      breaks = names(pal))+ scale_y_reverse()
   print(p1)  
 }
   
@@ -726,8 +728,106 @@ for (selected_type in c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
 
 ```
 
-
 ```{r}
+# Evaluate the area under Precision Recall curve separately for each cell type, then treat all classes equally and take the average across remaining 5 GC cell types
+library(ROCR)
+average_PR_curve.area = rep(0,7)
+names(average_PR_curve.area) = c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
+                 "B_Cycling",  "FDC","no")
+
+df_score <- data.frame(cell_type=NULL, deleted_type=NULL,
+value=NULL)  
+
+for (deleted_type in c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
+                 "B_Cycling",  "FDC","no") )
+{
+  if(deleted_type == "no"){
+    RCTD_file = paste(dataset_name,"full_RCTD.rds",sep ="_")
+  }else{
+    RCTD_file = paste(dataset_name,"full_RCTD", deleted_type, ".rds",sep ="_")
+  }
+  rds_file = RCTD_file
+  myRCTD_deleted <- readRDS(rds_file)   
+  normalized_weights_deleted <- normalize_weights(myRCTD_deleted@results$weights)
+  # normalize the cell type proportions to sum to 1.
+  matrix_result_deleted = as(normalized_weights_deleted,'matrix')
+  sum_PR_curve.area = 0
+  i = 1  
+  # Evaluate the area under Precision Recall curve separately for each cell type
+  for (remain_type in c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
+                 "B_Cycling",  "FDC") )
+{
+    if(remain_type == deleted_type){
+      next
+    }
+    
+    proportions = as.data.frame(matrix_result_deleted[,remain_type]) 
+    colnames(proportions) = remain_type
+    manual_GC_annotation[manual_GC_annotation$GC == '',"GC"] = 0
+    manual_GC_annotation[manual_GC_annotation$GC == 'GC',"GC"] = 1
+    proportions$Barcode = rownames(proportions)
+    manual_GC_label = manual_GC_annotation[manual_GC_annotation$Barcode != "ACTGTAGCACTTTGGA-1",]
+    manual_GC_label = manual_GC_label[manual_GC_label$Barcode != "CCCGCCATGCTCCCGT-1",]
+    proportions_label = merge(proportions,manual_GC_label,by = "Barcode")
+    
+    
+    pred <- prediction(proportions_label[,2],proportions_label[,3])
+    
+    PR_curve.area = performance(pred, measure = "aucpr")
+    
+    sum_PR_curve.area = PR_curve.area@y.values[[1]] + sum_PR_curve.area
+    
+    df_tmp <- data.frame(cell_type=remain_type, deleted_type=deleted_type,
+    value=PR_curve.area@y.values[[1]])
+    df_score <- rbind(df_score,df_tmp) 
+  
+    PR_curve = performance(pred, measure = "prec", x.measure = "rec")
+    if(i ==1)
+  {
+  df_all <- data.frame(cell_type=rep(remain_type,each=length(PR_curve@x.values[[1]])), 
+  recall=c(PR_curve@x.values[[1]]),
+  precision=c(PR_curve@y.values[[1]]))
+  
+
+  i = i + 1 
+    }else{
+
+  df <- data.frame(cell_type=rep(remain_type,each=length(PR_curve@x.values[[1]])), 
+  recall=c(PR_curve@x.values[[1]]),
+  precision=c(PR_curve@y.values[[1]]))
+  df_all =  rbind(df_all,df)    
+  i = i + 1 
+  }
+  
+  }
+  library(ggplot2)
+  df_all$cell_type = as.factor(df_all$cell_type)
+  plt <- ggplot(df_all, aes(x=recall, y=precision, color=cell_type)) + geom_line()+
+    ggtitle( paste(deleted_type,"cell type delected in reference"))
+ 
+  print(plt)
+  average_PR_curve.area[deleted_type] = sum_PR_curve.area/5
+
+  
+}
+
+
+df <- data.frame(deleted_cell_type=names(average_PR_curve.area),
+                average_area_PR_curve=average_PR_curve.area, similarity = "similar"  )
+df[df$deleted_cell_type %in% c("B_Cycling" , "FDC"),"similarity"] = "distinct"
+
+ref_line = df["no",2]
+df = df[df$deleted_cell_type!="no",]
+
+p <-ggplot(data=df, aes(x=deleted_cell_type,y=average_area_PR_curve,fill=similarity)) +  geom_bar(stat="identity") + geom_hline(yintercept=ref_line, linetype="dashed", color = "red")
+p
+
+
+
+```
+
+
+```{r calculate RMSD}
 rmsd_summary = rep(0,6)
 names(rmsd_summary) = c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
                  "B_Cycling",  "FDC")
