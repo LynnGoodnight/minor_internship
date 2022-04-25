@@ -22,7 +22,7 @@ setwd("/data/home/lyang/Visium_RCTD")
 
 ```{r,warning=FALSE, message=FALSE}
 init_require_packages <- function(){
-  library(Matrix)
+  # library(Matrix)
   library(spacexr)
   library(Seurat)
   library(readxl)
@@ -760,9 +760,9 @@ for (deleted_type in c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
     if(remain_type == deleted_type){
       next
     }
-    
+     # extract remain_type's predicted proportions in each spot
     proportions = as.data.frame(matrix_result_deleted[,remain_type]) 
-    colnames(proportions) = remain_type
+    colnames(proportions) = "proportion"
     manual_GC_annotation[manual_GC_annotation$GC == '',"GC"] = 0
     manual_GC_annotation[manual_GC_annotation$GC == 'GC',"GC"] = 1
     proportions$Barcode = rownames(proportions)
@@ -770,6 +770,29 @@ for (deleted_type in c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
     manual_GC_label = manual_GC_label[manual_GC_label$Barcode != "CCCGCCATGCTCCCGT-1",]
     proportions_label = merge(proportions,manual_GC_label,by = "Barcode")
     
+    
+     
+    library(ggplot2)   
+
+    if(remain_type != "FDC"){
+        print(paste("deleted_type:",deleted_type,"remain_type:",remain_type,
+            "predicted_positive:",sum(proportions_label$proportion>0),
+            "actual_positive:",sum(proportions_label$GC>0)))
+      
+        print("GC spot")
+        print(table(proportions_label[proportions_label$GC==1,"proportion"]))
+        print("non-GC spot")
+        print(table(proportions_label[proportions_label$GC==0,"proportion"]))
+    p3 = ggplot(proportions_label[proportions_label$proportion>0,], aes(x=proportion))+
+    geom_histogram(color="darkblue", fill="lightblue") + facet_grid(. ~ GC)+
+     labs(title = paste("deleted_type:",deleted_type,"remain_type:",remain_type),
+              subtitle = paste(
+            "predicted_positive:",sum(proportions_label$proportion>0),
+            "actual_positive:",sum(proportions_label$GC>0)))
+    print(p3)
+
+    }
+ 
     
     pred <- prediction(proportions_label[,2],proportions_label[,3])
     

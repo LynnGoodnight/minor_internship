@@ -51,7 +51,7 @@ sp_seu <- readRDS(rds_file)
 
 ```
 
-Quick data exploration:
+Quick data exploration, cell number of each cell type:
 
 ```{r explo, fig.width=12, fig.height=6}
 # "cell2location34" Tabula in_house
@@ -84,6 +84,41 @@ p <- ggplot(data=cell_type_table, aes(x=cell_type, y=frequency,fill=cell_type)) 
 
 print(p)
 
+#######################################################
+# plot mitochondria gene number, n_genes", "nCount_RNA"
+qc_filter_sc <- function(sc_dataset,dataset_name){
+  colnames(x = sc_dataset[[]])
+  if(dataset_name == "cell2location34"){
+      sc_dataset[['nCount_RNA']] = sc_dataset$n_counts
+  }else if(dataset_name == "Tabula"){
+    sc_dataset[['nCount_RNA']] = sc_dataset$n_counts_UMIs
+  }
+ 
+  
+  # head(sc_dataset@meta.data)
+  # The [[ operator can add columns to object metadata. This is a great place to stash QC stats
+  # sc_dataset[["percent.mt"]] <- PercentageFeatureSet(sc_dataset, pattern = "^MT-")
+    mt.genes <- grep(pattern = '^MT-', x = rownames(x = sc_dataset@assays$RNA),value = TRUE)
+
+  percent.mt <- Matrix::colSums(sc_dataset@assays$RNA[mt.genes, ]) / Matrix::colSums(sc_dataset@assays$RNA)
+
+  sc_dataset <- AddMetaData(object = sc_dataset,metadata = percent.mt,
+              col.name = 'percent.mt')
+  
+  # filter cells based on QC metrics
+  sc_dataset_filtered <- subset(sc_dataset, subset = n_genes > 200 & n_genes < 5000 & percent.mt < 0.05 )
+  return(list("sc_dataset"= sc_dataset,"sc_dataset_filtered"= sc_dataset_filtered))
+  
+}
+# i filter cells that have gene number over 2,500 or less than 200
+# i filter cells that have >5% mitochondrial counts
+# these qc requirement comes from Seurat tutorial, and only retain 9532/53275 cells
+a_list = qc_filter_sc(sc_dataset,dataset_name)
+sc_dataset = a_list$sc_dataset
+sc_dataset_filtered = a_list$sc_dataset_filtered
+
+sc_dataset_filtered
+VlnPlot(sc_dataset, features = c("n_genes", "nCount_RNA","percent.mt"))
 ```
 
 
@@ -99,22 +134,6 @@ if(file.exists("old_version_ls.rds")){
   decon_mtrx <- spotlight_ls[[2]]
   }else{
     Idents(sc_seu) = sc_seu$Subset
-sc_seu = sc_seu[!is.na(sc_seu@assays$RNA@meta.features$`GeneID-2`),]
-sc_seu = sc_seu[!duplicated(sc_seu@assays$RNA@meta.features$`GeneID-2`),]
-
-
-rownames(sc_seu@assays$RNA@meta.features) = sc_seu@assays$RNA@meta.features$`GeneID-2`
-rownames(sc_seu@assays$RNA@counts) = sc_seu@assays$RNA@meta.features$`GeneID-2`
-rownames(sc_seu@assays$RNA@data) = sc_seu@assays$RNA@meta.features$`GeneID-2`
-
-sp_seu = sp_seu[!is.na(sp_seu@assays[["Spatial"]]@counts@Dimnames[[1]]),]
-sp_seu = sp_seu[!duplicated(sp_seu@assays[["Spatial"]]@counts@Dimnames[[1]]),]
-rownames(sp_seu@assays[["Spatial"]]@meta.features) = sp_seu@assays[["Spatial"]]@counts@Dimnames[[1]]
-
-rownames(sp_seu@assays$Spatial@counts) = sp_seu@assays[["Spatial"]]@counts@Dimnames[[1]]
-rownames(sp_seu@assays$Spatial@data) = sp_seu@assays[["Spatial"]]@counts@Dimnames[[1]]
-
-sc_seu@meta.data = rename(sc_seu@meta.data, sample='ID')
 sc_seu <- SCTransform(sc_seu, verbose = FALSE) %>% RunPCA(verbose = FALSE)
 sp_seu <- SCTransform(sp_seu,assay = "Spatial", verbose = FALSE) %>% RunPCA(verbose = FALSE)
 
@@ -154,7 +173,7 @@ spotlight_ls <- spotlight_deconvolution(se_sc = sc_seu,
                                       ntop = NULL,
                                       transf = "uv",
                                       method = "nsNMF",
-                                      min_cont = 0.09)
+                                      min_cont = 0)
 saveRDS(spotlight_ls,"old_version_ls.rds")
 end_time <- Sys.time()
 end_time - start_time
@@ -190,7 +209,7 @@ topic_profile_plts[[1]] + theme(axis.text.x = element_text(angle = 90),
 
 # change the cell type names in sp_seu, replace _ with . to keep names coincide between sp_seu and decon_mtrx
 decon_mtrx_sub <- decon_mtrx[, colnames(decon_mtrx) != "res_ss"]
-decon_mtrx_sub[decon_mtrx_sub < 0.08] <- 0
+# decon_mtrx_sub[decon_mtrx_sub < 0.08] <- 0
 decon_mtrx <- cbind(decon_mtrx_sub, "res_ss" = decon_mtrx[, "res_ss"])
 rownames(decon_mtrx) <- colnames(sp_seu)
 
@@ -236,7 +255,7 @@ unloadNamespace("SPOTlight")
 library(SPOTlight)
 
 ct <- colnames(decon_mtrx[,-ncol(decon_mtrx)])
-decon_mtrx[decon_mtrx < 0.1] <- 0
+# decon_mtrx[decon_mtrx < 0.1] <- 0
 
 
 library(RColorBrewer)
@@ -417,56 +436,45 @@ sp_seu <- readRDS(rds_file)
 rds_file= "sc_seu_SCTransform.rds"
 sc_seu <- readRDS(rds_file)
 
-#### Extract the top marker genes from each cluster ####
-# Seurat::Idents(object = sc_seu) <- sc_seu@meta.data$Subset
-# cluster_markers_all <- Seurat::FindAllMarkers(object = sc_seu, 
-#                                               assay = "RNA",
-#                                               slot = "data",
-#                                               verbose = TRUE, 
-#                                               only.pos = TRUE, 
-#                                               logfc.threshold = 1,
-#                                               min.pct = 0.9)
-# saveRDS(cluster_markers_all,"cluster_markers_all.rds")
-# Leave out selected cell types from  marker genes variables
 
 rds_file= "cluster_markers_all.rds"
 cluster_markers_all <- readRDS(rds_file)
 
-#  unloadNamespace("SPOTlight") 
-# library(SPOTlight, lib.loc="/data/home/bioinfo/R/R4.1.0/library_B3.13/old_versions/")
-# for (selected_type in c( "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
-#                  "B_Cycling",  "FDC") )
-# {
-#   # selected_type = "B_GC_DZ"
-# 
-#   spotlight_result_file = paste(dataset_name,"spotlight_deleted", selected_type, ".rds",sep ="_")
-#   sc_reference <- subset(sc_seu, subset = Subset != selected_type)
-#   
-#   #### Extract the top marker genes from each cluster ####
-#   Seurat::Idents(object = sc_reference) <- sc_reference@meta.data$Subset
-# 
-#   set.seed(123)
-#   setwd("/data/home/lyang/Visium_spotlight")
-# 
-#   spotlight_ls <- spotlight_deconvolution(se_sc = sc_reference,
-#                                         counts_spatial = sp_seu@assays$Spatial@counts,
-#                                         clust_vr = "Subset",
-#                                         cluster_markers = cluster_markers_all,
-#                                         cl_n = 100, # 100 by default
-#                                         hvg = 5000,
-#                                         ntop = NULL,
-#                                         transf = "uv",
-#                                         method = "nsNMF",
-#                                         min_cont = 0.09)
-# 
-#   saveRDS(spotlight_ls,spotlight_result_file)
-#   print(spotlight_result_file)
-#     
-# }
+ unloadNamespace("SPOTlight")
+library(SPOTlight, lib.loc="/data/home/bioinfo/R/R4.1.0/library_B3.13/old_versions/")
+for (selected_type in c( "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC","B_GC_DZ",
+                 "B_Cycling",  "FDC") )
+{
+  # selected_type = "B_GC_DZ"
+
+  spotlight_result_file = paste(dataset_name,"spotlight_deleted", selected_type, ".rds",sep ="_")
+  sc_reference <- subset(sc_seu, subset = Subset != selected_type)
+
+  #### Extract the top marker genes from each cluster ####
+  Seurat::Idents(object = sc_reference) <- sc_reference@meta.data$Subset
+
+  set.seed(123)
+  setwd("/data/home/lyang/Visium_spotlight")
+
+  spotlight_ls <- spotlight_deconvolution(se_sc = sc_reference,
+                                        counts_spatial = sp_seu@assays$Spatial@counts,
+                                        clust_vr = "Subset",
+                                        cluster_markers = cluster_markers_all,
+                                        cl_n = 100, # 100 by default
+                                        hvg = 5000,
+                                        ntop = NULL,
+                                        transf = "uv",
+                                        method = "nsNMF",
+                                        min_cont = 0)
+
+  saveRDS(spotlight_ls,spotlight_result_file)
+  print(spotlight_result_file)
+
+}
 # getwd()
 ```
 
-```{r calculate RMSE when deleted different cell types}
+```{r calculate RMSE when deleted different cell types and plot 6 cell types}
 
 rmsd_summary = rep(0,6)
 names(rmsd_summary) =  c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC",
@@ -504,7 +512,7 @@ for (selected_type in  c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC",
   
   # change the cell type names in sp_seu, replace _ with . to keep names coincide between sp_seu and decon_mtrx
   decon_mtrx_sub <- decon_mtrx[, colnames(decon_mtrx) != "res_ss"]
-  decon_mtrx_sub[decon_mtrx_sub < 0.08] <- 0
+  # decon_mtrx_sub[decon_mtrx_sub < 0.08] <- 0
   decon_mtrx <- cbind(decon_mtrx_sub, "res_ss" = decon_mtrx[, "res_ss"])
   rownames(decon_mtrx) <- colnames(sp_seu)
   
@@ -516,11 +524,14 @@ for (selected_type in  c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC",
     tibble::rownames_to_column("barcodes") %>%
     dplyr::left_join(decon_df, by = "barcodes") %>%
     tibble::column_to_rownames("barcodes")  
-  
+  # delete last column that is red_ss value
   matrix_result_complete = norm_weights_matrix[,-ncol(norm_weights_matrix)]
 
   matrix_result_deleted = as.data.frame(decon_mtrx[,-ncol(decon_mtrx)])
+  # matrix_result_deleted lack one column that is the deleted cell type's column,
+  # we add this deleted cell type's column after last cloumn
   matrix_result_deleted$selected_type = rep(0,nrow(matrix_result_deleted))
+  #  meanwhile we cut the  deleted cell type's column in complete matrix_result_complete and insert it into matrix_result_complete's last column so deleted matrix and complete matrix have same cell type column oder 
   selected_column = matrix_result_complete[,selected_type]
   matrix_result_complete = as.data.frame(matrix_result_complete)
   df = matrix_result_complete[,!(names(matrix_result_complete) == selected_type)]
@@ -550,7 +561,7 @@ for (selected_type in  c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC",
   library(SPOTlight)
   
   ct <- colnames(decon_mtrx)
-  decon_mtrx[decon_mtrx < 0.1] <- 0
+  # decon_mtrx[decon_mtrx < 0.1] <- 0
   
   
   # # show T cell and 
@@ -587,7 +598,7 @@ for (selected_type in  c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC",
     pie_scale = 0.4) +
     scale_fill_manual(
       values = pal,
-      breaks = names(pal)) + scale_y_reverse()
+      breaks = names(pal)) + scale_y_reverse()+ggtitle(selected_type)
    print(p1)
 }
 
@@ -614,8 +625,13 @@ for (deleted_type in c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC", "B.Cy
 
   if(deleted_type == "complete"){
     rds_file= "old_version_ls.rds"
+  }else if(deleted_type != "T.CD4..TfH.GC"){
+   deleted_type_name = gsub(".", "_", deleted_type,fixed = TRUE)
+  spotlight_result_file = paste(dataset_name,"spotlight_deleted", deleted_type_name, ".rds",sep ="_")
+  rds_file= spotlight_result_file
   }else{
-  spotlight_result_file = paste(dataset_name,"spotlight_deleted", deleted_type, ".rds",sep ="_")
+    deleted_type_name = "T_CD4+_TfH_GC"
+    spotlight_result_file = paste(dataset_name,"spotlight_deleted", deleted_type_name, ".rds",sep ="_")
   rds_file= spotlight_result_file
   }
     spotlight_ls <- readRDS(rds_file)
@@ -647,13 +663,38 @@ for (deleted_type in c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC", "B.Cy
     if(remain_type == deleted_type){
       next
     }
-      print(c("deleted_type",deleted_type,"remain_type",remain_type))
+      # print(c("deleted_type",deleted_type,"remain_type",remain_type))
+      # extract remain_type's predicted proportions in each spot
     proportions = as.data.frame(matrix_result_deleted[,remain_type]) 
-    colnames(proportions) = remain_type
+    colnames(proportions) = "proportion"
+    # set GC spot's value to 1, non-GC spot's value to 0
     manual_GC_annotation[manual_GC_annotation$GC == '',"GC"] = 0
     manual_GC_annotation[manual_GC_annotation$GC == 'GC',"GC"] = 1
     proportions$Barcode = rownames(proportions)
     proportions_label = merge(proportions,manual_GC_annotation,by = "Barcode")
+ 
+    library(ggplot2)   
+
+    if(remain_type != "FDC"){
+        print(paste("deleted_type:",deleted_type,"remain_type:",remain_type,
+            "predicted_positive:",sum(proportions_label$proportion>0),
+            "actual_positive:",sum(proportions_label$GC>0)))
+      
+        print("GC spot")
+        print(table(proportions_label[proportions_label$GC==1,"proportion"]))
+        print("non-GC spot")
+        print(table(proportions_label[proportions_label$GC==0,"proportion"]))
+    p3 = ggplot(proportions_label[proportions_label$proportion>0,], aes(x=proportion))+
+    geom_histogram(color="darkblue", fill="lightblue") + facet_grid(. ~ GC)+
+    labs(title = paste("deleted_type:",deleted_type,"remain_type:",remain_type),
+              subtitle = paste(
+            "predicted_positive:",sum(proportions_label$proportion>0),
+            "actual_positive:",sum(proportions_label$GC>0)))
+
+    print(p3)
+
+    }
+    
     
     
     pred <- prediction(proportions_label[,2],proportions_label[,3])
@@ -667,20 +708,22 @@ for (deleted_type in c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC", "B.Cy
   {
   df_all <- data.frame(cell_type=rep(remain_type,each=length(PR_curve@x.values[[1]])), 
   recall=c(PR_curve@x.values[[1]]),
-  precision=c(PR_curve@y.values[[1]])) 
+  precision=c(PR_curve@y.values[[1]]),
+  cutoff = c(PR_curve@alpha.values[[1]])) 
   i = i + 1 
     }else{
 
   df <- data.frame(cell_type=rep(remain_type,each=length(PR_curve@x.values[[1]])), 
   recall=c(PR_curve@x.values[[1]]),
-  precision=c(PR_curve@y.values[[1]]))
+  precision=c(PR_curve@y.values[[1]]),
+  cutoff = c(PR_curve@alpha.values[[1]]))
   df_all =  rbind(df_all,df)    
   i = i + 1 
   }
   }
-  library(ggplot2)
+
   df_all$cell_type = as.factor(df_all$cell_type)
-  plt <- ggplot(df_all, aes(x=recall, y=precision, color=cell_type)) + geom_line()+
+  plt <- ggplot(df_all, aes(x=recall, y=precision, color=cell_type))+geom_point() +
     ggtitle(deleted_type)
   print(plt)
   
