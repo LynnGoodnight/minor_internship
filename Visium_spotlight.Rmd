@@ -431,46 +431,46 @@ SpatialFeaturePlot(spatial, features = c("B.naive", "B.preGC"), pt.size.factor =
 # saveRDS(sc_seu,"sc_seu_SCTransform.rds")
 
 
-rds_file= "sp_seu_SCTransform.rds"
-sp_seu <- readRDS(rds_file)
-rds_file= "sc_seu_SCTransform.rds"
-sc_seu <- readRDS(rds_file)
-
-
-rds_file= "cluster_markers_all.rds"
-cluster_markers_all <- readRDS(rds_file)
-
- unloadNamespace("SPOTlight")
-library(SPOTlight, lib.loc="/data/home/bioinfo/R/R4.1.0/library_B3.13/old_versions/")
-for (selected_type in c( "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC","B_GC_DZ",
-                 "B_Cycling",  "FDC") )
-{
-  # selected_type = "B_GC_DZ"
-
-  spotlight_result_file = paste(dataset_name,"spotlight_deleted", selected_type, ".rds",sep ="_")
-  sc_reference <- subset(sc_seu, subset = Subset != selected_type)
-
-  #### Extract the top marker genes from each cluster ####
-  Seurat::Idents(object = sc_reference) <- sc_reference@meta.data$Subset
-
-  set.seed(123)
-  setwd("/data/home/lyang/Visium_spotlight")
-
-  spotlight_ls <- spotlight_deconvolution(se_sc = sc_reference,
-                                        counts_spatial = sp_seu@assays$Spatial@counts,
-                                        clust_vr = "Subset",
-                                        cluster_markers = cluster_markers_all,
-                                        cl_n = 100, # 100 by default
-                                        hvg = 5000,
-                                        ntop = NULL,
-                                        transf = "uv",
-                                        method = "nsNMF",
-                                        min_cont = 0)
-
-  saveRDS(spotlight_ls,spotlight_result_file)
-  print(spotlight_result_file)
-
-}
+# rds_file= "sp_seu_SCTransform.rds"
+# sp_seu <- readRDS(rds_file)
+# rds_file= "sc_seu_SCTransform.rds"
+# sc_seu <- readRDS(rds_file)
+# 
+# 
+# rds_file= "cluster_markers_all.rds"
+# cluster_markers_all <- readRDS(rds_file)
+# 
+#  unloadNamespace("SPOTlight")
+# library(SPOTlight, lib.loc="/data/home/bioinfo/R/R4.1.0/library_B3.13/old_versions/")
+# for (selected_type in c( "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC","B_GC_DZ",
+#                  "B_Cycling",  "FDC") )
+# {
+#   # selected_type = "B_GC_DZ"
+# 
+#   spotlight_result_file = paste(dataset_name,"spotlight_deleted", selected_type, ".rds",sep ="_")
+#   sc_reference <- subset(sc_seu, subset = Subset != selected_type)
+# 
+#   #### Extract the top marker genes from each cluster ####
+#   Seurat::Idents(object = sc_reference) <- sc_reference@meta.data$Subset
+# 
+#   set.seed(123)
+#   setwd("/data/home/lyang/Visium_spotlight")
+# 
+#   spotlight_ls <- spotlight_deconvolution(se_sc = sc_reference,
+#                                         counts_spatial = sp_seu@assays$Spatial@counts,
+#                                         clust_vr = "Subset",
+#                                         cluster_markers = cluster_markers_all,
+#                                         cl_n = 100, # 100 by default
+#                                         hvg = 5000,
+#                                         ntop = NULL,
+#                                         transf = "uv",
+#                                         method = "nsNMF",
+#                                         min_cont = 0)
+# 
+#   saveRDS(spotlight_ls,spotlight_result_file)
+#   print(spotlight_result_file)
+# 
+# }
 # getwd()
 ```
 
@@ -486,7 +486,8 @@ spatial <- readRDS(rds_file)
 spatial@meta.data$Barcode = rownames(spatial@meta.data)
 spatial@meta.data = merge(spatial@meta.data, manual_GC_annotation, by = "Barcode", sort = FALSE)
 
-spatial@meta.data[spatial@meta.data$GC == '',"GC"] = "no"
+spatial@meta.data[spatial@meta.data$GC == '',"GC"] = "Non germline center"
+spatial@meta.data[spatial@meta.data$GC == 'GC',"GC"] = "Germline center"
 
 p2 <- SpatialDimPlot(spatial, group.by = "GC") 
 # p1 + p2

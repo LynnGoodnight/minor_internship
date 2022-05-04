@@ -779,10 +779,10 @@ for (deleted_type in c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
             "predicted_positive:",sum(proportions_label$proportion>0),
             "actual_positive:",sum(proportions_label$GC>0)))
       
-        print("GC spot")
-        print(table(proportions_label[proportions_label$GC==1,"proportion"]))
-        print("non-GC spot")
-        print(table(proportions_label[proportions_label$GC==0,"proportion"]))
+        # print("GC spot")
+        # print(table(proportions_label[proportions_label$GC==1,"proportion"]))
+        # print("non-GC spot")
+        # print(table(proportions_label[proportions_label$GC==0,"proportion"]))
     p3 = ggplot(proportions_label[proportions_label$proportion>0,], aes(x=proportion))+
     geom_histogram(color="darkblue", fill="lightblue") + facet_grid(. ~ GC)+
      labs(title = paste("deleted_type:",deleted_type,"remain_type:",remain_type),
