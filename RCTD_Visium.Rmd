@@ -842,7 +842,7 @@ df[df$deleted_cell_type %in% c("B_Cycling" , "FDC"),"similarity"] = "distinct"
 ref_line = df["no",2]
 df = df[df$deleted_cell_type!="no",]
 
-p <-ggplot(data=df, aes(x=deleted_cell_type,y=average_area_PR_curve,fill=similarity)) +  geom_bar(stat="identity") + geom_hline(yintercept=ref_line, linetype="dashed", color = "red")
+p <-ggplot(data=df, aes(x=deleted_cell_type,y=average_area_PR_curve)) +  geom_bar(stat="identity") + geom_hline(yintercept=ref_line, linetype="dashed", color = "red")
 p
 
 

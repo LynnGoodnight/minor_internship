@@ -255,7 +255,7 @@ unloadNamespace("SPOTlight")
 library(SPOTlight)
 
 ct <- colnames(decon_mtrx[,-ncol(decon_mtrx)])
-# decon_mtrx[decon_mtrx < 0.1] <- 0
+decon_mtrx[decon_mtrx < 0.1] <- 0
 
 
 library(RColorBrewer)
@@ -370,7 +370,7 @@ plotSpatialScatterpie(
 
 
 
-```{r plot selected cell types on spatial images, warning=FALSE, fig.width=10, fig.height=10}
+```{r plot selected cell types on spatial images with one cell type per plot and contain concentration scale bar, warning=FALSE, fig.width=10, fig.height=10}
 
 rds_file='predictions.assay.rds'
 predictions.assay <- readRDS(rds_file)
@@ -493,7 +493,7 @@ p2 <- SpatialDimPlot(spatial, group.by = "GC")
 # p1 + p2
 print(p2)
 
-
+getwd()
 
 
 
@@ -501,8 +501,13 @@ for (selected_type in  c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC",
                  "B.Cycling",  "FDC") )
 {
   # selected_type = "B.GC.DZ"
+  if(selected_type != "T.CD4..TfH.GC"){
+   selected_type_name = gsub(".", "_", selected_type,fixed = TRUE)
+  }else{
+    selected_type_name = "T_CD4+_TfH_GC"
+  }
 
-  spotlight_result_file = paste(dataset_name,"spotlight_deleted", selected_type, ".rds",sep ="_")
+  spotlight_result_file = paste(dataset_name,"spotlight_deleted", selected_type_name, ".rds",sep ="_")
   setwd("/data/home/lyang/Visium_spotlight")
   rds_file= spotlight_result_file
   spotlight_ls <- readRDS(rds_file)
@@ -590,17 +595,17 @@ for (selected_type in  c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC",
                    "B.Cycling",  "FDC")
   
   pal = plot_n_cell_type(pal_back,col_vec,6,cell_type_vector)
-  p1 = plotSpatialScatterpie(
-    x = sp_seu,
-    y = decon_mtrx[,-ncol(decon_mtrx)],
-    cell_types = colnames(y),
-    img = FALSE,
-    scatterpie_alpha = 1,
-    pie_scale = 0.4) +
-    scale_fill_manual(
-      values = pal,
-      breaks = names(pal)) + scale_y_reverse()+ggtitle(selected_type)
-   print(p1)
+  # p1 = plotSpatialScatterpie(
+  #   x = sp_seu,
+  #   y = decon_mtrx[,-ncol(decon_mtrx)],
+  #   cell_types = colnames(y),
+  #   img = FALSE,
+  #   scatterpie_alpha = 1,
+  #   pie_scale = 0.4) +
+  #   scale_fill_manual(
+  #     values = pal,
+  #     breaks = names(pal)) + scale_y_reverse()+ggtitle(selected_type)
+  #  print(p1)
 }
 
 df <- data.frame(deleted_cell_type=names(rmsd_summary),
@@ -741,7 +746,7 @@ df[df$deleted_cell_type %in% c("B.Cycling" , "FDC"),"similarity"] = "distinct"
 ref_line = df["complete",2]
 df = df[df$deleted_cell_type!="complete",]
 
-p <-ggplot(data=df, aes(x=deleted_cell_type,y=average_area_PR_curve,fill=similarity)) +  geom_bar(stat="identity") + geom_hline(yintercept=ref_line, linetype="dashed", color = "red")
+p <-ggplot(data=df, aes(x=deleted_cell_type,y=average_area_PR_curve)) +  geom_bar(stat="identity") + geom_hline(yintercept=ref_line, linetype="dashed", color = "red")
 p
 
 
