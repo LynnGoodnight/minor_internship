@@ -867,11 +867,11 @@ for (selected_type in c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
   # normalize the cell type proportions to sum to 1.
   matrix_result_deleted = as(normalized_weights_deleted,'matrix')
   matrix_result_deleted = as.data.frame(matrix_result_deleted)
-  matrix_result_deleted$selected_type = rep(0,nrow(matrix_result_deleted))
-  selected_column = matrix_result_complete[,selected_type]
+  # matrix_result_deleted$selected_type = rep(0,nrow(matrix_result_deleted))
+  # selected_column = matrix_result_complete[,selected_type]
   matrix_result_complete = as.data.frame(matrix_result_complete)
   df = matrix_result_complete[,!(names(matrix_result_complete) == selected_type)]
-  df$selected_type = selected_column
+  # df$selected_type = selected_column
   matrix_result_complete = as.matrix(df)
   matrix_result_deleted = as.matrix(matrix_result_deleted)
   

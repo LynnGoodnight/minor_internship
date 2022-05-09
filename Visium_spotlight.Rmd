@@ -536,12 +536,12 @@ for (selected_type in  c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC",
   matrix_result_deleted = as.data.frame(decon_mtrx[,-ncol(decon_mtrx)])
   # matrix_result_deleted lack one column that is the deleted cell type's column,
   # we add this deleted cell type's column after last cloumn
-  matrix_result_deleted$selected_type = rep(0,nrow(matrix_result_deleted))
+  # matrix_result_deleted$selected_type = rep(0,nrow(matrix_result_deleted))
   #  meanwhile we cut the  deleted cell type's column in complete matrix_result_complete and insert it into matrix_result_complete's last column so deleted matrix and complete matrix have same cell type column oder 
-  selected_column = matrix_result_complete[,selected_type]
+  # selected_column = matrix_result_complete[,selected_type]
   matrix_result_complete = as.data.frame(matrix_result_complete)
   df = matrix_result_complete[,!(names(matrix_result_complete) == selected_type)]
-  df$selected_type = selected_column
+  # df$selected_type = selected_column
   matrix_result_complete = as.matrix(df)
   matrix_result_deleted = as.matrix(matrix_result_deleted)
   
@@ -578,23 +578,23 @@ for (selected_type in  c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC",
 
   library(ggplot2)
   
-  plot_n_cell_type <- function(pal,col_vec,n, cell_type_vector)
-  {
-    for (char in names(pal)) {
-    # print(char)
-    if(char %in%  cell_type_vector){
-      next
-    }
-    pal[char] = "#00008b"
-  }
-  
-    return(pal)
-  }
-  
-  cell_type_vector = c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC",
-                   "B.Cycling",  "FDC")
-  
-  pal = plot_n_cell_type(pal_back,col_vec,6,cell_type_vector)
+  # plot_n_cell_type <- function(pal,col_vec,n, cell_type_vector)
+  # {
+  #   for (char in names(pal)) {
+  #   # print(char)
+  #   if(char %in%  cell_type_vector){
+  #     next
+  #   }
+  #   pal[char] = "#00008b"
+  # }
+  # 
+  #   return(pal)
+  # }
+  # 
+  # cell_type_vector = c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC",
+  #                  "B.Cycling",  "FDC")
+  # 
+  # pal = plot_n_cell_type(pal_back,col_vec,6,cell_type_vector)
   # p1 = plotSpatialScatterpie(
   #   x = sp_seu,
   #   y = decon_mtrx[,-ncol(decon_mtrx)],
@@ -687,9 +687,9 @@ for (deleted_type in c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC", "B.Cy
             "actual_positive:",sum(proportions_label$GC>0)))
       
         print("GC spot")
-        print(table(proportions_label[proportions_label$GC==1,"proportion"]))
+        # print(table(proportions_label[proportions_label$GC==1,"proportion"]))
         print("non-GC spot")
-        print(table(proportions_label[proportions_label$GC==0,"proportion"]))
+        # print(table(proportions_label[proportions_label$GC==0,"proportion"]))
     p3 = ggplot(proportions_label[proportions_label$proportion>0,], aes(x=proportion))+
     geom_histogram(color="darkblue", fill="lightblue") + facet_grid(. ~ GC)+
     labs(title = paste("deleted_type:",deleted_type,"remain_type:",remain_type),
@@ -729,7 +729,7 @@ for (deleted_type in c("B.GC.DZ", "B.GC.LZ", "B.GC.prePB","T.CD4..TfH.GC", "B.Cy
   }
 
   df_all$cell_type = as.factor(df_all$cell_type)
-  plt <- ggplot(df_all, aes(x=recall, y=precision, color=cell_type))+geom_point() +
+  plt <- ggplot(df_all, aes(x=recall, y=precision, color=cell_type))+geom_line() +
     ggtitle(deleted_type)
   print(plt)
   
