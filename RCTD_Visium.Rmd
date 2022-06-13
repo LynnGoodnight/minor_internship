@@ -826,7 +826,7 @@ for (deleted_type in c("B_GC_DZ", "B_GC_LZ", "B_GC_prePB","T_CD4+_TfH_GC",
   library(ggplot2)
   df_all$cell_type = as.factor(df_all$cell_type)
   plt <- ggplot(df_all, aes(x=recall, y=precision, color=cell_type)) + geom_line()+
-    ggtitle( paste(deleted_type,"cell type delected in reference"))
+    ggtitle( paste(deleted_type,"cell type deleted in reference"))
  
   print(plt)
   average_PR_curve.area[deleted_type] = sum_PR_curve.area/5
